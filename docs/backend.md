@@ -412,7 +412,16 @@ fail. See [testing.md](testing.md#http-api-tests-unreleased) for commands.
 
 A configured production identity provider, production browser sign-in, run
 requests through the API, notifications (push, SMS, email),
-production configuration, distributed rate limits, deployment and CI remain
-future milestones. An HTTP decision response shows only that the decision was
+production configuration, distributed rate limits and deployment remain
+future milestones. PR/push CI is enabled; see the [Docker validation record](zoomcamp/DOCKER_STARTUP.md). An HTTP decision response shows only that the decision was
 recorded; the approval's `execution` and `timeline` show what a worker did
 with it afterwards.
+
+## Containerized local reviewer
+
+The [Compose reviewer path](REVIEWER_GUIDE.md#one-command-docker-startup) keeps
+the API on `127.0.0.1:18000` inside its application container. The built
+frontend's same-origin proxy shares that container and forwards authenticated
+requests to the loopback API. Only the frontend is published on host loopback
+at port 15473. No API bind restriction, permission or token verification is
+relaxed; production deployment remains a separate design.

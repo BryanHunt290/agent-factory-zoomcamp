@@ -38,7 +38,25 @@ The [AI development workflow](docs/ai-workflow.md) describes human and AI roles;
 [AGENTS.md](AGENTS.md) links the modular engineering instructions.
 
 For the full web application, use the [reviewer guide](docs/REVIEWER_GUIDE.md).
-Python 3.12, Node 24, Git and a running Docker Linux engine are prerequisites:
+With a running Docker Linux engine and Docker Compose, start the frontend,
+authenticated API, worker and PostgreSQL in one command:
+
+```sh
+docker compose up --build -d --wait
+```
+
+Open **http://127.0.0.1:15473**. The guide explains how to copy the generated
+development token to a private local file and select it at sign-in. Docker uses
+its own named volumes for credentials, database records and workspaces; normal
+`docker compose stop` and subsequent startup retain the review history.
+No host Python or Node installation is needed for this Docker path. The first
+build downloads digest-pinned base images and pinned Python/npm dependencies;
+Debian utility packages resolve from the base distribution's package repositories. The API still binds to
+container loopback, and only the dashboard is published on host loopback.
+See the [Docker task and validation record](docs/zoomcamp/DOCKER_STARTUP.md).
+
+The existing host launcher remains available for development and the full test
+suite. It requires Python 3.12, Node 24, Git and a running Docker Linux engine:
 
 ```powershell
 py -3.12 scripts/reviewer.py setup          # once: pinned dependencies and PostgreSQL image
@@ -64,12 +82,15 @@ passed all jobs on [initial public commit `40cea253`](https://github.com/BryanHu
 1,887 Python tests, 57 frontend tests plus contract/type/build checks, 352
 PostgreSQL tests and 42 browser tests passed. Skips and scope are recorded in
 [publication evidence](docs/zoomcamp/PUBLICATION.md). Source and the
-[task/evidence record](docs/zoomcamp/DAY2_TASKS.md) are public; selecting and
-verifying the final submission commit remains a Day 3 step.
+[task/evidence record](docs/zoomcamp/DAY2_TASKS.md) are public. The initial
+submission `ea02081` was saved on October 24; the Docker update is selected only
+after its complete CI passes. The course receipt records the submitted commit.
 [Deployment preparation](docs/deployment.md) describes production identity,
 release, backup and rollback requirements. No public deployment or CD has been
-activated. PostgreSQL and execution isolation use containers; the host-based
-reviewer launcher is not full application containerization.
+activated. The Docker reviewer path containerizes the complete local demo;
+the separate execution sandbox still blocks untrusted execution when unavailable.
+This Compose environment uses the deterministic fake provider and has no Docker
+socket access; it is not a production deployment or a sandbox for arbitrary code.
 
 
 > Latest local release: **v0.2.0** (execution sandbox), tagged on branch

@@ -1,11 +1,14 @@
 # Final submission package
 
-**Status: demo, screenshots and restart evidence prepared; course submission not performed.**
-The owner confirmed the certificate name as Bryan Hunt. Use the exact SHA and
-matching complete CI run in the [verified submission release](https://github.com/BryanHunt290/agent-factory-zoomcamp/releases/tag/zoomcamp-submission-2026-10-24)
-and local `FINAL_SUBMISSION_READY.md` receipt. The release is published only after
-CI passes; if it is absent, final selection is still pending. This source file
-does not attempt to embed its own commit hash.
+**Status: initial submission `ea02081` saved on October 24, 2026 at 05:17 MDT.**
+The Docker startup milestone updates the candidate only after complete CI passes.
+Its exact chosen SHA, CI URL and latest course confirmation are retained in the
+local submission receipt. Historical release evidence remains available below.
+The owner confirmed the certificate name as Bryan Hunt. The [original verified
+submission release](https://github.com/BryanHunt290/agent-factory-zoomcamp/releases/tag/zoomcamp-submission-2026-10-24)
+retains evidence for the prior `ea02081` build. For a replacement, use the latest
+local `FINAL_SUBMISSION_READY.md` receipt, its exact SHA, matching complete CI
+and course confirmation. This source file does not embed its own future commit hash.
 
 ## Verified deadlines and requirements
 
@@ -27,13 +30,13 @@ not a self-awarded score or a guarantee of acceptance. See the
 | Field | Value to submit |
 | --- | --- |
 | Public repository URL — required | https://github.com/BryanHunt290/agent-factory-zoomcamp |
-| Exact commit — required | Copy the full 40-character SHA from the verified submission release / local ready receipt; never submit a moving branch name |
+| Exact commit — required | Use the first seven characters of the full verified SHA in the latest local submission receipt (the course form requires seven characters); never use a moving branch name |
 | Certificate name — required | **Bryan Hunt** — exact spelling confirmed by the owner |
 | Hours spent — optional | Not provided; leave blank unless the owner supplies an estimate |
 | Learning-in-public evidence — optional | Not provided; include only genuine owner-approved links |
 | FAQ contribution evidence — optional | Not provided; include only genuine contribution links |
 
-Copy the evaluated commit's exact SHA rather than a moving branch name. At final
+Resolve and verify the full evaluated SHA, then enter its seven-character prefix in the form. At final
 handoff, the local `FINAL_SUBMISSION_READY.md` receipt will record that SHA, its
 completed green CI run and the form values; it is prepared only after verification.
 This checked-in package does not embed its own future commit hash. Do not use an
@@ -65,7 +68,7 @@ Start with the [reviewer guide](../REVIEWER_GUIDE.md), then the
 | Approval and completed execution | Captured: recorded approval, succeeded execution, one attempt, completed run; [demo](evidence/README.md) |
 | Reload/restart persistence | Passed: same project/run/decision/execution, exactly one attempt; [before/after proof](evidence/persistence.json) |
 | Demo and screenshot index | [48-second captured demo, ten screenshots and hashes](evidence/README.md) |
-| Course submission receipt | **PENDING:** platform confirmation and timestamp after submission |
+| Course submission receipt | Initial `ea02081`: **SUBMITTED**, October 24 at 05:17 MDT. The replacement is saved only after complete CI; latest local receipt records that outcome. |
 | Three peer reviews | **PENDING:** platform completion status by the separate deadline |
 
 [Publication history](PUBLICATION.md) and [Day 2 validation](DAY2_VALIDATION.md)
@@ -101,8 +104,7 @@ or bypassing ownership checks.
 
 ## Known gaps to disclose
 
-- Full application containerization remains incomplete: PostgreSQL and execution
-  isolation use containers; the reviewer API, worker and frontend run on the host.
+- Full local demo containerization is provided by Compose; see the [Docker validation record](DOCKER_STARTUP.md). Its trusted fake fixture does not establish isolation for arbitrary generated code inside the app container.
 - Production identity, a public application deployment and CD are not established.
   The [deployment runbook](../deployment.md) is preparation, not deployment evidence.
 - Correlated operational metrics/traces and a viewing interface, verified
@@ -113,7 +115,7 @@ or bypassing ownership checks.
 
 ## Before pressing Submit
 
-- [ ] Fill the evaluated commit's exact SHA from the verified local ready receipt;
+- [ ] For an update, enter the first seven characters of the verified SHA from the latest local receipt;
   use the confirmed certificate name **Bryan Hunt**. Optional hours remain blank.
 - [ ] Confirm the exact public SHA includes the intended code and evidence and
   has a completed passing CI run; review the final rubric claims and demo links.

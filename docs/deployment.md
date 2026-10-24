@@ -19,6 +19,7 @@ above govern the preparation below.
 
 | Artifact | What it supplies | What still has to be demonstrated |
 | --- | --- | --- |
+| [Docker Compose reviewer](../compose.yaml) | Full local frontend/API/worker/PostgreSQL demo with one-command startup and retained named volumes | [Docker validation](zoomcamp/DOCKER_STARTUP.md); production identity and hosting remain separate |
 | [Reviewer launcher](../scripts/reviewer.py) | Local setup/start/test entry point, isolated from the owner's existing development data | Fresh-machine results recorded with exact commands and dependency versions |
 | [CI workflow](../.github/workflows/ci.yml) | Published and enabled PR/push/manual checks; [initial hosted run](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions/runs/40065197804) passed all Python, frontend and PostgreSQL/browser jobs on `40cea253` | Matching complete green CI on the final submission commit |
 | Existing authentication modules | Signed access-token verification, principal permissions and development/production separation | A configured production provider and browser sign-in |

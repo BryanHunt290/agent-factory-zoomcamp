@@ -1,6 +1,6 @@
 # Current Zoomcamp rubric mapping
 
-Reviewed 2026-10-23 against the [official current source](https://raw.githubusercontent.com/DataTalksClub/ai-dev-tools-zoomcamp/main/project/README.md).
+Reviewed 2026-10-24 against the [official current source](https://raw.githubusercontent.com/DataTalksClub/ai-dev-tools-zoomcamp/main/project/README.md).
 It states 12 criteria, 24 total points, and 10 points to pass. Three peer reviews
 are also required. The course platform controls deadlines and final assessment.
 This replaces the older 14-criterion mapping, preserved in
@@ -16,11 +16,11 @@ that this checkout works. Fresh outcomes are in [DAY1_VALIDATION.md](DAY1_VALIDA
 | Context management | 2 | Root AGENTS.md links modular architecture, process, security, API, database and frontend docs. |
 | Application | 2 | React frontend, FastAPI, PostgreSQL and workers passed the local browser workflows after Docker recovery; see the fresh validation record. The reviewer launcher now supplies one-command local startup after setup; see [reviewer guide](../REVIEWER_GUIDE.md). |
 | Testing | 2 | Python unit/integration and frontend tests exist. Fresh results and unavailable suites are recorded separately; `scripts/reviewer.py check --browser` combines the offline, database, frontend and browser checks. |
-| Containerization | 2 | sandbox_image/Dockerfile packages execution isolation only. Full application plus database Compose startup remains missing. |
+| Containerization | 2 | [Docker Compose](../../compose.yaml) starts the frontend, API, worker and PostgreSQL with one command. The [Docker task and validation record](DOCKER_STARTUP.md) records real checks and persistence evidence; this is the local deterministic reviewer environment. |
 | Deployment | 2 | Local-only; no verified public URL or deployed demonstration. [Deployment preparation](../deployment.md) covers identity, hosting, backups and rollback; production configuration remains outstanding. |
-| CI/CD | 3 | PR/push CI is enabled with immutable action pins. [Initial hosted run](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions/runs/40065197804) passed all Python, frontend and PostgreSQL/browser jobs on `40cea253`. [Publication evidence](PUBLICATION.md) records counts and limits. The final submission SHA still needs matching green CI; no CD or public runtime deployment is claimed. |
+| CI/CD | 3 | PR/push CI is enabled with immutable action pins. [Initial hosted run](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions/runs/40065197804) passed all Python, frontend and PostgreSQL/browser jobs on `40cea253`. [Publication evidence](PUBLICATION.md) records counts and limits. The initial submitted SHA `ea02081` passed complete CI. The Docker update adds a real Compose approval/restart check; its submitted SHA is selected only after matching complete green CI. No CD or public runtime deployment is claimed. |
 | Observability | 2 | API emits redacted structured logs and request IDs. Correlated metrics/traces and a collection/viewing UI remain missing. |
-| Alerting on user impact | 1 | No verified operational alert. Approval notifications do not demonstrate a user-impact alert. |
+| Alerting on user impact | 1 | No verified operational alert. Approval notifications and outage warnings exist; operational alert delivery has not been demonstrated. The official one-point wording does not prescribe a delivery system. |
 | On-call agent | 2 | No verified alert-triggered remediation. Coding orchestration is not an on-call responder. |
 
 Prioritize reproducibility and passing evidence before optional feature depth.

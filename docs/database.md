@@ -440,9 +440,10 @@ same schema everywhere.
 - **Refusals.** It refuses to run if the database records a version this
   code doesn't have (the database is newer), or a file whose checksum
   changed. History is never rewritten: a schema change is a new file.
-- **No start-up migration.** Agent Factory never migrates by itself.
-  Opening the store only *checks* that the schema is current, and refuses
-  otherwise with "run `db migrate`".
+- **No implicit server migration.** API/worker startup and opening the store
+  only *check* that the schema is current, and refuse otherwise with
+  "run `db migrate`". The reviewer launchers explicitly invoke that command
+  during bootstrap, before starting the servers.
 
 ```bat
 .venv\Scripts\python -m agent_factory db check     # connectivity, role, migration status; changes nothing
@@ -1015,3 +1016,14 @@ never to both.
 - **No audit trail of grants.** A grant records when it was made, not by
   whom; enrollment and permission changes are made with the local CLI and are
   not logged to a table.
+
+## Docker reviewer database
+
+The [Compose reviewer path](REVIEWER_GUIDE.md#one-command-docker-startup) uses
+its own PostgreSQL service and named database/credential volumes, without a
+published host port or mounts from the existing host review setup. Explicit
+bootstrap provisions its local application role and runs `db migrate` before
+servers start. API startup still never migrates. Retain both database and
+credential volumes together; missing credentials are an error, not permission
+to regenerate secrets over retained data. Normal Compose stop/start preserves
+records and workspaces; see [actual validation](zoomcamp/DOCKER_STARTUP.md).

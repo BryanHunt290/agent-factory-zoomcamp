@@ -1,0 +1,51 @@
+{
+  "compose_project": "af-smoke-local20261024b",
+  "passed": true,
+  "project_id": "prj-ec8a1541ee797c223689",
+  "run_id": "review-approval",
+  "approval_id": "apr-a54b55169e3c29e8",
+  "decision_id": "apd-d450c0e67208ee21c41c",
+  "execution_id": "axe-cdd9df86e029f8faf1c4",
+  "status": "completed",
+  "execution_attempts": 1,
+  "anonymous_status": 401,
+  "restart_records_unchanged": true,
+  "resources_unchanged": true,
+  "resources": {
+    "app": {
+      "container_id": "75b702fb6e97f01dd5c7815a47adb7b759e54cfb54a1a850f2d88a69e94aadab",
+      "volumes": {
+        "/workspaces": "af-smoke-local20261024b_workspaces",
+        "/credentials": "af-smoke-local20261024b_credentials",
+        "/state": "af-smoke-local20261024b_app_state"
+      }
+    },
+    "db": {
+      "container_id": "40fcd931b7bc0aa203c9d0f50e528065a7711d842ce61c23e91a682a29c98d2a",
+      "volumes": {
+        "/var/lib/postgresql/data": "af-smoke-local20261024b_database",
+        "/credentials": "af-smoke-local20261024b_credentials"
+      }
+    },
+    "prepare": {
+      "container_id": "e0349c10b12d0966f4162c9704190603af6109b8112156fb3841419e2580af1b",
+      "volumes": {
+        "/state": "af-smoke-local20261024b_app_state",
+        "/workspaces": "af-smoke-local20261024b_workspaces",
+        "/credentials": "af-smoke-local20261024b_credentials",
+        "/database": "af-smoke-local20261024b_database"
+      }
+    }
+  },
+  "workspace_artifacts_unchanged": true,
+  "workspace_sha256": {
+    "project/calculator.py": "a2d822b41ab8dcfe17f89adf6bff929b166b92b964c346171aa698c1e2309c3e",
+    "project/tests/test_calculator.py": "c71bbdcbebe9078e1f9f4d8f872d747cfac5edea7129f96181c03f7672e91f96",
+    ".agent_factory/workspace.json": "ca684a6a0d836c3d0a22f4b3b9b6b1232243f63b09334d0d7b1e85071c5498c2",
+    ".agent_factory/runs/review-approval/checkpoint.json": "01f9cce75f29ec6ee4f772b810c500699fed47ada3e873edacae307bda611dfb",
+    ".agent_factory/runs/review-approval/execution_log.jsonl": "edd1c5ebe27942bbbdd2981bc3095d834dd803cc64043cb971a7d11e1f295997"
+  },
+  "old_token_accepted_after_restart": true,
+  "services_stopped_volumes_retained": true,
+  "finished_at_utc": "2026-10-24T11:46:50.569967+00:00"
+}

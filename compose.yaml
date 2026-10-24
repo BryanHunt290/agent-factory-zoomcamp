@@ -1,0 +1,86 @@
+name: agent-factory-zoomcamp
+
+x-application: &application
+  image: agent-factory-reviewer:${COMPOSE_PROJECT_NAME:-agent-factory-zoomcamp}
+  build: .
+  environment:
+    AF_COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-agent-factory-zoomcamp}
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  prepare:
+    <<: *application
+    command: prepare
+    user: "0:0"
+    network_mode: none
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    read_only: true
+    volumes:
+      - app_state:/state
+      - workspaces:/workspaces
+      - credentials:/credentials
+      - database:/database
+
+  db:
+    image: postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+    depends_on:
+      prepare:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_USER: af_admin
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /credentials/postgres-admin.password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - database:/var/lib/postgresql/data
+      - credentials:/credentials:ro
+    networks: [reviewer]
+    healthcheck:
+      # The image's temporary initialization server listens only on its Unix
+      # socket. Require TCP so app cannot race that intermediate server.
+      test: [CMD-SHELL, "pg_isready -h 127.0.0.1 -U af_admin -d postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  app:
+    <<: *application
+    depends_on:
+      db:
+        condition: service_healthy
+    init: true
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=128m
+    ports:
+      - "127.0.0.1:${AF_DASHBOARD_PORT:-15473}:14173"
+    volumes:
+      - app_state:/state
+      - workspaces:/workspaces
+      - credentials:/credentials:ro
+    networks: [reviewer, dashboard]
+    healthcheck:
+      test: [CMD, python, scripts/docker_runtime.py, health]
+      interval: 5s
+      timeout: 15s
+      start_period: 60s
+      retries: 12
+    stop_grace_period: 45s
+    restart: unless-stopped
+
+networks:
+  reviewer:
+    internal: true
+  dashboard:
+    # A normal bridge is needed for host port publication. Only app joins it;
+    # PostgreSQL stays on reviewer, and the published dashboard remains loopback.
+
+volumes:
+  app_state:
+  workspaces:
+  credentials:
+  database:

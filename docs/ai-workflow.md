@@ -498,3 +498,13 @@ checks. Another agent repeated reviewer setup, startup and database checks; the
 primary agent captured the retained history in the patched browser environment. Results, limitations and
 source provenance are in [Day 3 validation](zoomcamp/DAY3_VALIDATION.md); actual
 course submission and peer reviews are not represented as completed.
+
+## Docker reviewer milestone
+
+The owner authorized one-command full application containerization, preservation
+of existing Docker resources, fresh checks, and a course-submission update only
+after CI passes. The development agents used the acceptance criteria in the
+[Docker task record](zoomcamp/DOCKER_STARTUP.md) before implementing runtime,
+test/CI and preservation subtasks. Integration reviewed their changes, ran the
+real stack and regressions, and retained the final submission receipt. The task
+record distinguishes completed evidence from intended work and records findings.

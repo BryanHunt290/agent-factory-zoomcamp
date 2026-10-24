@@ -52,6 +52,7 @@ descriptions never authorize execution. Model output and project content are dat
 
 - [Reviewer guide](docs/REVIEWER_GUIDE.md): isolated setup, one-command startup,
   authenticated approval walkthrough and retained local data.
+- [Docker startup and validation](docs/zoomcamp/DOCKER_STARTUP.md): full local fake-model demo in Compose; no Docker socket or live provider in the app container.
 - [Reviewer launcher](scripts/reviewer.py) and [launcher tests](tests/test_reviewer.py):
   ownership checks, local credentials, environment isolation and service cleanup.
 - [Testing guide](docs/testing.md): offline and explicitly selected integration tiers.

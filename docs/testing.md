@@ -840,3 +840,12 @@ network traffic was limited to temporary loopback fixtures. Live, database, brow
 Docker/adversarial and stress suites were not run. This changes a local test fixture,
 not application features, security policy or test-runner guards; it does not claim
 opt-in suites passed. Skills loading has no bearing on the HTTP defect.
+
+## Complete Compose reviewer check
+
+The [Docker milestone](zoomcamp/DOCKER_STARTUP.md) adds runtime guard regression
+tests and a CI lane that builds and starts the actual Compose stack, verifies
+authentication and a trusted-fixture approval, then checks retained execution
+history after stop/start. This check operates only on the newly created Compose
+project. Existing database/browser suites remain separate and use their guarded
+test databases; no live model, cloud provider or hostile-code suite is enabled.

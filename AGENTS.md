@@ -268,6 +268,7 @@ configuration described in the linked component documentation.
 | What | Command |
 | --- | --- |
 | Reviewer environment, first setup | `py -3.12 scripts/reviewer.py setup` |
+| Complete Docker reviewer startup | `docker compose up --build -d --wait` (see reviewer guide; isolated named volumes, host-loopback frontend) |
 | One-command local startup | `py -3.12 scripts/reviewer.py up` |
 | Real-stack smoke check, then stop its child services | `py -3.12 scripts/reviewer.py smoke` |
 | Offline, PostgreSQL, frontend and installed-Chrome checks | `py -3.12 scripts/reviewer.py check --browser` |
@@ -453,7 +454,8 @@ Report every result honestly, including failures and skips.
   - Migrations are immutable once applied. Change the schema only with a
     new numbered file in `agent_factory/persistence/migrations/`, never by
     editing an old one (the migrator checksums them).
-  - Agent Factory never migrates on start-up.
+  - API/worker startup and opening a store never migrate. The reviewer
+    launchers perform an explicit `db migrate` bootstrap before servers start.
   - Tests use fresh, randomly named schemas, and refuse any database that
     is non-local or not named for testing.
 - **Do not touch other projects' resources** on this machine. That

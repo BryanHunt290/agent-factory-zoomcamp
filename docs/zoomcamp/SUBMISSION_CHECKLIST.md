@@ -20,7 +20,7 @@ The previous checklist is retained as [historical evidence](HISTORICAL_SUBMISSIO
 ## Day 2: packaging and delivery
 
 - [x] Implement a one-command local launcher with isolated database and retained history.
-- [ ] Containerize the API, worker and frontend as well as PostgreSQL (separate remaining rubric gap).
+- [x] Add Docker Compose for the API, worker, frontend and PostgreSQL; see [Docker task and validation](DOCKER_STARTUP.md) for checks and limitations.
 - [x] Provide `scripts/reviewer.py check --browser` for unit, database, frontend and real-browser checks.
 - [x] Record local tasks, acceptance criteria and genuine agent-use evidence in [DAY2_TASKS.md](DAY2_TASKS.md).
 - [x] Publish the [task/evidence record](https://github.com/BryanHunt290/agent-factory-zoomcamp/blob/40cea25324288e1e6ef6b2e8180dc3f85e797b63/docs/zoomcamp/DAY2_TASKS.md) with the public source repository.
@@ -41,8 +41,8 @@ Follow the [Day 3 handoff](DAY3_HANDOFF.md) for the ordered final preparation an
 - [x] Review the 12 criteria against actual evidence; keep missing items explicit.
 - [ ] Operational metrics/traces, user-impact alert and bounded responder remain explicit rubric gaps.
 - [x] Confirm the [public reviewer-accessible repository](https://github.com/BryanHunt290/agent-factory-zoomcamp).
-- [ ] Select and record the exact final submission commit after its checks pass.
-- [ ] Submit through the course platform and confirm receipt.
+- [x] Select initial submission `ea02081` after complete CI passed.
+- [x] Submit through the official course platform; confirmed SUBMITTED on October 24 at 05:17 MDT.
 - [ ] Complete three assigned peer reviews by their separate deadline.
 
 Verified cutoff: **October 26, 2026, 23:00 UTC / 5 p.m. Denver MDT**.
@@ -50,4 +50,8 @@ Three peer reviews: **November 2, 2026, 23:00 UTC / 4 p.m. Denver MST**.
 See [Day 3 validation](DAY3_VALIDATION.md), [captured evidence](evidence/README.md)
 and the [final package](FINAL_SUBMISSION.md). Final commit/CI selection is recorded
 after verification in the submission release and local ready receipt; course
-submission and peer reviews remain separate actions.
+updates and peer reviews remain separate actions. The existing saved submission remains valid while an update is being verified.
+
+For a Docker milestone update, select the exact new commit only after all its CI
+jobs pass, then retain the updated course confirmation. The latest local receipt
+records that post-publication step; historical release tags remain unchanged.
