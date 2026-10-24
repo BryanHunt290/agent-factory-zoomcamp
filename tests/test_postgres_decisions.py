@@ -23,8 +23,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from decision_support import Flow, claimed, once, released
-from worker_support import age_claim, race
+from decision_support import Flow, MovableClock, claimed, once, released
+from worker_support import BeforeAgent, age_claim, race
 
 from agent_factory.domain.approvals import ApprovalStatus
 from agent_factory.domain.errors import ApprovalExpiredError, ConflictError, StatusTransitionError
@@ -190,6 +190,39 @@ def test_c5_an_approval_that_expires_while_the_worker_is_claiming_is_never_used(
     assert flow.request().status is ApprovalStatus.APPROVED  # the person's decision is kept as made
 
 
+def assert_expiry_outcome(flow, expires_at, decision):
+    """A decision may expire before consumption or between consumption and dispatch."""
+    assert flow.checkpoint().status is RunStatus.COMPLETED
+    [applied] = flow.events("approval_decision")
+    executions = flow.store.executions.list_for_run(flow.project_id, "run-1")
+    notices = flow.notices()
+    assert notices in (0, 1)
+    if notices:
+        assert applied["approved"] is True
+        [execution] = executions
+        assert execution.state is ExecutionState.SUCCEEDED
+        [attempt_row] = flow.store.executions.attempts(flow.project_id, "run-1", execution.id)
+        assert parse_timestamp(attempt_row.dispatched_at) < parse_timestamp(expires_at)
+        assert not isinstance(decision, Exception)
+    elif applied["approved"] is True:
+        # Consumed in time, but the ledger correctly refused a later dispatch.
+        assert not isinstance(decision, Exception)
+        assert parse_timestamp(decision.decision.decided_at) < parse_timestamp(expires_at)
+        [execution] = executions
+        assert execution.state is ExecutionState.LAPSED
+        assert execution.lapse_reason == "authorization_expired"
+        assert execution.authorized_until == expires_at
+        assert execution.attempts == 0
+        assert flow.store.executions.attempts(flow.project_id, "run-1", execution.id) == []
+        assert flow.events("action_dispatching") == []
+    else:
+        assert (applied["approved"], applied["refused"]) == (False, "expired")
+        assert executions == []
+    if isinstance(decision, Exception):
+        assert isinstance(decision, (ApprovalExpiredError, StatusTransitionError))
+        assert flow.store.approvals.get_decision(flow.project_id, flow.request().id) is None
+
+
 @pytest.mark.parametrize("offset", [-0.3, -0.05, 0.0, 0.1])
 def test_c6_a_decision_racing_the_expiry_never_runs_the_action_after_it(pg_flow, pg_open, monkeypatch, offset):
     short_expiry(monkeypatch, seconds=1.5)
@@ -213,18 +246,31 @@ def test_c6_a_decision_racing_the_expiry_never_runs_the_action_after_it(pg_flow,
 
     decision, events = race([person, worker])
     assert claimed(events) is not None
-    state = flow.checkpoint()
-    assert state.status is RunStatus.COMPLETED
-    if flow.notices():
-        [attempt_row] = flow.store.executions.attempts(flow.project_id, "run-1", flow.execution().id)
-        assert parse_timestamp(attempt_row.dispatched_at) < parse_timestamp(expires_at)  # began before the expiry
-        assert not isinstance(decision, Exception)
-    else:
-        [applied] = flow.events("approval_decision")
-        assert applied["approved"] is False
-    if isinstance(decision, Exception):
-        assert isinstance(decision, (ApprovalExpiredError, StatusTransitionError))
-        assert flow.store.approvals.get_decision(flow.project_id, flow.request().id) is None
+    assert_expiry_outcome(flow, expires_at, decision)
+
+
+def test_c6b_approval_consumed_before_expiry_cannot_dispatch_at_expiry(pg_flow):
+    """Force the third race outcome without depending on wall-clock scheduling."""
+    flow = pg_flow()
+    # Only the application clock moves; real PostgreSQL still owns worker leases.
+    flow.clock = MovableClock(datetime.now(UTC))
+    flow.paused()
+    expires_at = flow.request().expires_at
+    decision = flow.decide("approved")
+
+    def expire_before_tool(ex):
+        def expire():
+            [applied] = flow.events("approval_decision")
+            assert applied["approved"] is True
+            assert parse_timestamp(flow.now()) < parse_timestamp(expires_at)
+            flow.clock.at(expires_at)
+
+        ex.agents["operator"] = BeforeAgent(ex.agents["operator"], expire)
+
+    flow.adjusters.append(expire_before_tool)
+    assert claimed(flow.work()) is not None
+    assert flow.notices() == 0
+    assert_expiry_outcome(flow, expires_at, decision)
 
 
 def test_c7_two_reconciliation_answers_settle_on_exactly_one(pg_flow, pg_open):

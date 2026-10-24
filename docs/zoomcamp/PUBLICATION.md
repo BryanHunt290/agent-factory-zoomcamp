@@ -43,12 +43,43 @@ the separate Day 1 validation records those recovery checks. Stress, hostile
 sandbox, live model and live cloud tiers are not covered by this hosted run.
 
 JUnit reports and the frontend candidate bundle were uploaded successfully with
-seven-day artifact retention. No application or workflow repair was needed after
-publication. The documentation follow-up adds clone instructions, repairs links
+seven-day artifact retention. The initial hosted run required no application or workflow repair. The documentation follow-up adds clone instructions, repairs links
 to excluded material, records these results, and prepares the
 [Day 3 handoff](DAY3_HANDOFF.md). Later commits run the same workflow; check the
 [Actions page](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions)
 for a completed successful run on the exact final submission SHA.
+
+## Follow-up: approval-expiry race regression
+
+The documentation commit `3d67e14` triggered
+[run 40066138018](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions/runs/40066138018).
+Python and frontend passed, but PostgreSQL reported **one failed, 351 passed**:
+`test_c6_a_decision_racing_the_expiry_never_runs_the_action_after_it[-0.05]`.
+The browser step did not run because the database step failed. This failed run
+is retained as evidence; the earlier green run does not establish later results.
+
+The test assumed that zero effects always means the approval was refused during
+decision consumption. It omitted a valid third outcome: a decision is consumed
+before expiry, then the execution ledger refuses dispatch at or after expiry.
+The persisted execution is `LAPSED` with `authorization_expired`, zero attempts
+and no effect. The same boundary already had an in-memory regression.
+
+[The PostgreSQL regression](../../tests/test_postgres_decisions.py) now verifies
+all three outcomes explicitly. Successful dispatch must still begin strictly
+before expiry and produce exactly one effect. The safe-lapse outcome requires
+zero attempt rows, zero dispatch events and zero effects; refusal during
+consumption requires an expired decision and no execution record. A new case
+uses a movable application clock to force dispatch exactly at expiry after
+approval consumption, while PostgreSQL's lease clock remains real.
+
+Local validation reproduced the old assertion failure deterministically, then
+passed all **25 decision race/crash tests**. A process-local mutation that allowed
+expired authorization to dispatch failed the new zero-effect assertion as
+intended. No source mutation persisted; the final focused regression passed
+again with the guard restored. Application code, workflow selectors and safety
+guards are unchanged. The test correction is mirrored in the original authoring
+checkout. The corrective push runs the complete hosted workflow again; use its
+commit-associated result on the Actions page when selecting the submission SHA.
 
 ## Remaining submission boundaries
 

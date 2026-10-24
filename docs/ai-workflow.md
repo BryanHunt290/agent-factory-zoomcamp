@@ -473,3 +473,13 @@ documents retain the application's engineering and safety boundaries. This
 publication step did not deploy the application. Historical development
 references above describe the authoring history, not commits included in the
 new public Git history.
+
+The publication follow-up CI run exposed an intermittent expiry-race test
+assertion. The coordinating agent and CI agent independently identified the
+missing accepted-before-expiry / lapsed-before-dispatch outcome. A deterministic
+PostgreSQL regression reproduced the old assertion failure, then verified the
+corrected outcome checks. An in-process expiry-guard bypass was rejected by the
+new zero-effect assertion, and the restored case passed. Only test coverage
+changed; application authorization logic and CI selectors remain intact. The
+[publication record](zoomcamp/PUBLICATION.md#follow-up-approval-expiry-race-regression)
+preserves the failed run, diagnosis and validation.

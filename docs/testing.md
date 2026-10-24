@@ -12,6 +12,17 @@ for full regression results, skip reasons and the approved filesystem access nee
 to run these checks. Older suite totals below remain historical. The external
 temporary-root requirement and all live-suite opt-in guards remain unchanged.
 
+## Hosted reviewer checks
+
+The [CI workflow](../.github/workflows/ci.yml) runs default Python/API checks,
+frontend contracts/types/tests/build, PostgreSQL integration and installed-Chrome
+workflow/recovery tests. [Publication evidence](zoomcamp/PUBLICATION.md) records
+actual runs, including the expiry-race test correction. In that regression, a
+consumed approval may lapse before dispatch: the execution must have zero
+attempts and effects. The real-time race and deterministic exact-expiry case in
+`tests/test_postgres_decisions.py` both enforce that boundary. No live model or
+cloud call is needed for these checks.
+
 ## Test suite
 
 From the repository root:
