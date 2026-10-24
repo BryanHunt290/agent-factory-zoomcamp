@@ -415,8 +415,9 @@ hand. The working method above applies to every commit in this repository.
 - **The owner's full assignment texts.** This page summarizes their
   structure and quotes representative constraints. Whether to publish the
   full texts is the owner's decision.
-- **Automated mutation testing and CI.** Verification today runs on the
-  owner's machine.
+- **A general automated mutation-testing pipeline.** Bounded mutation checks
+  are recorded in the validation documents. Hosted CI is now enabled; its current
+  evidence is recorded in the Day 2 section below.
 
 ## Zoomcamp Day 1 readiness
 
@@ -456,6 +457,19 @@ artifacts and assigned roles. The [Day 2 validation](zoomcamp/DAY2_VALIDATION.md
 records actual test, audit and mutation outcomes; assignment alone is not proof
 of a successful check. See the [reviewer guide](REVIEWER_GUIDE.md),
 [CI workflow](../.github/workflows/ci.yml) and
-[deployment runbook](deployment.md). Hosted CI activation, source publication,
-production identity and public deployment remain outstanding until separately
-completed and evidenced. The earlier workflow history above is preserved.
+[deployment runbook](deployment.md). The owner subsequently authorized public
+source publication: [the repository](https://github.com/BryanHunt290/agent-factory-zoomcamp) and this task/evidence record are
+published at [initial commit `40cea253`](https://github.com/BryanHunt290/agent-factory-zoomcamp/commit/40cea25324288e1e6ef6b2e8180dc3f85e797b63). Hosted CI is enabled;
+[the initial run](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions/runs/40065197804) passed all Python, frontend and PostgreSQL/browser jobs
+without application or workflow code fixes. Counts and limits are recorded in
+[publication evidence](zoomcamp/PUBLICATION.md). Final submission-commit selection,
+production identity, public runtime deployment, CD and course submission remain
+outstanding. The earlier workflow history above is preserved.
+
+The public repository starts with a fresh source snapshot of the application,
+tests, CI and reviewer documentation. The private authoring Git history and
+unrelated personal/business skill catalog were excluded; public context
+documents retain the application's engineering and safety boundaries. This
+publication step did not deploy the application. Historical development
+references above describe the authoring history, not commits included in the
+new public Git history.

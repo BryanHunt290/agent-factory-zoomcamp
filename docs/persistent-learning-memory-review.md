@@ -83,7 +83,9 @@ stage; the existing S3 metadata fixture is not a memory adapter.
 
 These are explicit future prerequisites, not claims validated by today's tests.
 No cloud request, real model call, credential discovery, installation, deployment,
-external message or push occurred. The installed `aws-deployment-safety` skill
-informed the offline cloud review; its
-[repository reference](skills/aws-deployment-safety/SKILL.md) grants no execution
-authority.
+external message or push occurred during that review. The installed
+`aws-deployment-safety` skill informed the offline cloud review; that separate
+business-specific skill catalog is omitted from this public snapshot. The retained
+[cloud capability boundaries](aws-capabilities.md) and
+[engineering rules](../AGENTS.md) describe this application's authorization
+requirements and grant no execution authority.

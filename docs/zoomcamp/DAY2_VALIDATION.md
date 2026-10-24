@@ -2,7 +2,10 @@
 
 Validation performed on 2026-10-23 (America/Denver) against the working tree on
 `codex/zoomcamp-day2-reviewer`, based on `f9fb35c`. This record distinguishes
-local evidence from hosted CI and public deployment, which have not run.
+local evidence from hosted CI and public deployment, which had not run at that
+point. The subsequent repository publication and hosted results are recorded in
+[PUBLICATION.md](PUBLICATION.md). The results below remain the original local
+validation evidence.
 
 ## Delivered scope
 

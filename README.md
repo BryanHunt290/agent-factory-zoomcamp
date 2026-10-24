@@ -53,8 +53,13 @@ with development authentication.
 frontend and installed-Chrome checks. Omit `--browser` if Chrome is unavailable.
 For the offline CLI demonstration, use the Quick start below.
 
-[CI](.github/workflows/ci.yml) defines PR/push checks and retains results. Hosted
-results are available on the [Actions page](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions).
+[CI](.github/workflows/ci.yml) is enabled for PR/push checks. The [first hosted run](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions/runs/40065197804)
+passed all jobs on [initial public commit `40cea253`](https://github.com/BryanHunt290/agent-factory-zoomcamp/commit/40cea25324288e1e6ef6b2e8180dc3f85e797b63):
+1,887 Python tests, 57 frontend tests plus contract/type/build checks, 352
+PostgreSQL tests and 42 browser tests passed. Skips and scope are recorded in
+[publication evidence](docs/zoomcamp/PUBLICATION.md). Source and the
+[task/evidence record](docs/zoomcamp/DAY2_TASKS.md) are public; selecting and
+verifying the final submission commit remains a Day 3 step.
 [Deployment preparation](docs/deployment.md) describes production identity,
 release, backup and rollback requirements. No public deployment or CD has been
 activated. PostgreSQL and execution isolation use containers; the host-based

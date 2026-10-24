@@ -1,8 +1,10 @@
 # Day 2 delivery tasks and acceptance criteria
 
 Owner assignment: provide a reproducible reviewer environment, one-command
-startup and CI, then prepare deployment for the Zoomcamp submission. This local
-task record was prepared on 2026-10-23. It is not a published issue tracker.
+startup and CI, then prepare deployment for the Zoomcamp submission. This task
+record was prepared on 2026-10-23 and is now [published with the source](https://github.com/BryanHunt290/agent-factory-zoomcamp)
+at [initial commit `40cea253`](https://github.com/BryanHunt290/agent-factory-zoomcamp/commit/40cea25324288e1e6ef6b2e8180dc3f85e797b63). It is a repository task/evidence
+record, not a GitHub Issues or Projects board.
 The [Day 2 validation record](DAY2_VALIDATION.md) supplies actual commands,
 outcomes, defects and remaining limits; source preparation alone does not prove
 acceptance or a successful hosted run.
@@ -12,10 +14,10 @@ acceptance or a successful hosted run.
 | D2-1 | Reproduce setup without global Python packages: install exact requirement pins and npm lockfile; use the pinned PostgreSQL image; generate local credentials without printing them. | [Launcher](../../scripts/reviewer.py) and [reviewer guide](../REVIEWER_GUIDE.md) prepared. Clean-install results belong in the validation record. |
 | D2-2 | Start the real API, frontend and worker with one command after setup; seed an approval workflow; bind only to loopback; preserve reviewer data and existing unrelated containers when stopping. | `reviewer.py up`, isolated reviewer resources and [launcher boundary tests](../../tests/test_reviewer.py). Verify the authenticated approval journey separately from process startup. |
 | D2-3 | Supply one test entry point for Python, frontend and PostgreSQL, with an explicit installed-Chrome browser tier; keep test schemas separate from persistent reviewer records. | `reviewer.py check` and `check --browser`; [verification instructions](../REVIEWER_GUIDE.md#verification). Docker-restart and live-provider tiers remain separately opt-in. |
-| D2-4 | Define PR/push CI with immutable action pins, read-only repository permissions, pinned runtimes and disposable loopback PostgreSQL; run default Python, frontend and browser/database checks. | [CI workflow](../../.github/workflows/ci.yml) prepared; actionlint 1.7.7 passed locally with networking disabled. Hosted activation and passing run URL remain outstanding. |
+| D2-4 | Define PR/push CI with immutable action pins, read-only repository permissions, pinned runtimes and disposable loopback PostgreSQL; run default Python, frontend and browser/database checks. | [CI workflow](../../.github/workflows/ci.yml) published and enabled; actionlint 1.7.7 passed locally. [Initial hosted run](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions/runs/40065197804) passed all three jobs on `40cea253`: Python, frontend and PostgreSQL/browser. Exact counts and limits are in [publication evidence](PUBLICATION.md). |
 | D2-5 | Prepare a concrete deployment plan covering production identity, same-origin TLS routing, durable state, acceptance, paired-state backup and rollback; preserve existing loopback and fake-provider defaults. | [Deployment runbook](../deployment.md) prepared. No production identity, public endpoint, provisioning or CD execution is claimed. |
 | D2-6 | Independently inspect launcher isolation and resource ownership; exercise safety assertions with bounded tests and mutation checks; integrate findings without weakening existing guards. | Independent audit assigned to `review_docker_repair`; [boundary tests](../../tests/test_reviewer.py) and the validation record retain the actual findings and mutation outcomes. |
-| D2-7 | Keep reviewer instructions, rubric status and AI-use disclosure consistent with observed results, preserving historical evidence. | [AI workflow](../ai-workflow.md#zoomcamp-day-2-delivery), [submission checklist](SUBMISSION_CHECKLIST.md), this task record and final validation. Public task-tracker publication remains outstanding. |
+| D2-7 | Keep reviewer instructions, rubric status and AI-use disclosure consistent with observed results, preserving historical evidence. | [AI workflow](../ai-workflow.md#zoomcamp-day-2-delivery), [submission checklist](SUBMISSION_CHECKLIST.md), this published task/evidence record and final validation. The repository document supplies public evidence; no separate Issues/Projects board is claimed. |
 
 ## Actual agent collaboration
 
@@ -40,10 +42,11 @@ service container. The CI selectors and guide make those limits explicit.
 
 ## Remaining delivery work
 
-- Select and authorize publication of the runnable source repository and exact
-  submission commit; no issue URL or public tracker status is invented here.
-- Activate the committed workflow in that repository and record a passing hosted
-  run on the submitted commit. Local actionlint and tests do not establish this.
+- Select the final submission commit after its checks pass. Initial source and
+  this task record have been published; course submission has not been completed.
+- Retain [the passing initial hosted run](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions/runs/40065197804) and obtain a complete passing
+  run on the final submission commit after documentation updates. A green run on
+  an earlier SHA does not establish the final commit's result.
 - Complete the production identity, login, exposure and runtime gates before
   public deployment; implement and verify CD only after its target is approved.
 - Capture the final demonstration, verify the course cutoff, submit and complete

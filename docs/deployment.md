@@ -4,23 +4,23 @@ Prepared 2026-10-23 for the Zoomcamp submission. **This is a source-based
 delivery plan, not a deployed service or an authorization to provision one.**
 The reproducible local reviewer environment is the submission's current runnable
 target. Its development issuer, loopback API and fake model/notification providers
-remain local. No public URL, production identity, cloud resource or CD run is
-claimed by this document.
+remain local. No public runtime URL, production identity, cloud resource or CD
+run is claimed by this document.
 
 The owner's Day 2 scope is reviewer setup, startup, CI and deployment preparation.
 The existing [architecture boundaries](../AGENTS.md),
 [authentication design](authentication.md), [sandbox](sandbox.md) and
 [AWS capability limits](aws-capabilities.md) remain authoritative. The runtime
 capability named `aws.deploy.execute` has no implementation; this plan does not
-activate it. The [AWS deployment safety skill](skills/aws-deployment-safety/SKILL.md)
-informs the offline preparation below.
+activate it. The architecture, authentication and sandbox requirements linked
+above govern the preparation below.
 
 ## Delivery artifacts and current evidence
 
 | Artifact | What it supplies | What still has to be demonstrated |
 | --- | --- | --- |
 | [Reviewer launcher](../scripts/reviewer.py) | Local setup/start/test entry point, isolated from the owner's existing development data | Fresh-machine results recorded with exact commands and dependency versions |
-| [CI workflow](../.github/workflows/ci.yml) | PR/push/manual Python, frontend, PostgreSQL and real-browser checks; JUnit and frontend candidate artifacts | An actual successful hosted run on the submitted commit |
+| [CI workflow](../.github/workflows/ci.yml) | Published and enabled PR/push/manual checks; [initial hosted run](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions/runs/40065197804) passed all Python, frontend and PostgreSQL/browser jobs on `40cea253` | Matching complete green CI on the final submission commit |
 | Existing authentication modules | Signed access-token verification, principal permissions and development/production separation | A configured production provider and browser sign-in |
 | Existing Docker execution sandbox | Fail-closed isolation for untrusted code | A reviewed, locked sandbox image on the future runtime host |
 | This runbook | Target architecture, release gates, state handling and rollback | Approved target, budget, infrastructure implementation and deployment acceptance |
@@ -230,9 +230,11 @@ scope.
 
 ## What remains before submission
 
-Verify the clean reviewer command and the exact submitted commit first. Then
-publish the authorized source/CI changes, obtain a passing hosted run, and record
-its URL. Public deployment, production identity, login, remote runtime validation,
+Source and CI are published in [the public repository](https://github.com/BryanHunt290/agent-factory-zoomcamp). The
+[first hosted run](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions/runs/40065197804) passed all jobs on initial commit `40cea253`;
+[publication evidence](zoomcamp/PUBLICATION.md) records the exact results. Select
+the final submission commit and verify matching complete green CI on that SHA.
+Public deployment, production identity, login, remote runtime validation,
 CD, operational metrics/traces and alerting remain separate uncompleted work until
 implemented and tested. The course's deployment points must not be claimed from
 this preparation document alone.

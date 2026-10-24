@@ -23,21 +23,25 @@ The previous checklist is retained as [historical evidence](HISTORICAL_SUBMISSIO
 - [ ] Containerize the API, worker and frontend as well as PostgreSQL (separate remaining rubric gap).
 - [x] Provide `scripts/reviewer.py check --browser` for unit, database, frontend and real-browser checks.
 - [x] Record local tasks, acceptance criteria and genuine agent-use evidence in [DAY2_TASKS.md](DAY2_TASKS.md).
-- [ ] Publish the task/evidence record with the reviewer-accessible source repository.
+- [x] Publish the [task/evidence record](https://github.com/BryanHunt290/agent-factory-zoomcamp/blob/40cea25324288e1e6ef6b2e8180dc3f85e797b63/docs/zoomcamp/DAY2_TASKS.md) with the public source repository.
 - [x] Add pinned PR/push CI with Python, frontend, PostgreSQL and browser jobs; actionlint passed.
-- [ ] Publish runnable source to the approved repository and obtain a passing hosted CI run.
+- [x] Publish runnable source to [the public repository](https://github.com/BryanHunt290/agent-factory-zoomcamp) at initial commit `40cea253`.
+- [x] Obtain a passing complete [hosted CI run](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions/runs/40065197804) on initial public commit `40cea253`; all Python, frontend and PostgreSQL/browser jobs passed.
 - [x] Prepare the production deployment, identity, backup and rollback runbook in `docs/deployment.md`.
 - [ ] Configure production authentication and verify a deployed demo after the hosting decision.
 - [ ] Activate CD after production gates; rollback procedure is prepared, not exercised against a live deployment.
 
 ## Day 3: evidence and submission
 
+Follow the [Day 3 handoff](DAY3_HANDOFF.md) for the ordered final preparation and evidence checks.
+
 - [ ] Verify the exact deadline and timezone on the course platform.
 - [ ] Re-run the clean setup and the principal user journey.
 - [ ] Capture a short demonstration and screenshots with no credentials visible.
 - [ ] Review the 12 criteria against actual evidence; keep missing items explicit.
 - [ ] Add operational metrics/traces, user-impact alert and bounded responder if feasible.
-- [ ] Confirm a public reviewer-accessible repository and exact submission commit.
+- [x] Confirm the [public reviewer-accessible repository](https://github.com/BryanHunt290/agent-factory-zoomcamp).
+- [ ] Select and record the exact final submission commit after its checks pass.
 - [ ] Submit through the course platform and confirm receipt.
 - [ ] Complete three assigned peer reviews by their separate deadline.
 

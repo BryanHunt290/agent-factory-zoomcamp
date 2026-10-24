@@ -13,6 +13,13 @@ account or model API key. It does not demonstrate real-model coding quality.
 - Network access for the initial package/image download. No services are published
   beyond this machine's loopback interface.
 
+Clone the public submission source into a new directory:
+
+```powershell
+git clone https://github.com/BryanHunt290/agent-factory-zoomcamp.git
+cd agent-factory-zoomcamp
+```
+
 From the repository root, install the reviewer environment once:
 
 ```powershell
