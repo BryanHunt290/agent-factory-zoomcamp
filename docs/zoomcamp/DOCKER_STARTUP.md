@@ -138,9 +138,9 @@ use the checked-in pins/lockfile. Debian utility packages resolve from the base
 distribution's repositories, so this is not a claim of bit-for-bit image builds.
 Only amd64 containers were exercised; arm64 has not been independently verified.
 
-Evidence SHA256:
+Evidence SHA256 (committed files; JSON uses LF line endings):
 
-- `docker-compose-smoke.json`: `8622369c0b7e970006b676525d6dd204870ed5fa36452db099275278453056ac`
+- `docker-compose-smoke.json`: `7a63072a21a0c6f0dabb888965d70bf3d9a7bafaca16b95b7fc7caa321615094`
 - `docker-dashboard.png`: `5a1717ba9b69100f20599be0a7a2b60b5ee8699ba5fe4beceb2264873d05435b`
 
 ## CI and course-submission gate
