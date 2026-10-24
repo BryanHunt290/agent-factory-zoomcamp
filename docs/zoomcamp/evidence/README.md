@@ -1,9 +1,12 @@
 # Captured reviewer demo
 
-This is a real local browser capture of the public checkout, made October 24,
-2026 UTC (October 23 in Denver before midnight). The runtime and dependency pins
-match commit `e571dc3a8c965cdc4d24cb5d83bdc5bdf579ffd7`; Day 3 adds evidence and
-documentation. See [Day 3 validation](../DAY3_VALIDATION.md) and the
+These are real local browser captures of the public checkout, made October 24,
+2026 UTC. Initial capture was before midnight October 23 in Denver; the post-patch
+capture was after midnight. Application code matches
+`e571dc3a8c965cdc4d24cb5d83bdc5bdf579ffd7`. After the original capture, Vite and
+Undici received a [minimal security patch](../DEPENDENCY_PATCH.md). Screenshot 10
+and the [patched runtime proof](patched-runtime.json) verify the patched app;
+the original video and screenshots retain their original toolchain provenance. See [Day 3 validation](../DAY3_VALIDATION.md) and the
 [submission package](../FINAL_SUBMISSION.md).
 
 ## Play the demonstration
@@ -53,6 +56,7 @@ The worker subsequently records **Succeeded**, **1 attempt**, and a completed ru
 | Same completed project after Ctrl+C and restart | [Project after restart](07-after-restart.jpg) |
 | Same approval/execution, still exactly one attempt | [Execution after restart](08-execution-after-restart.jpg) |
 | Compact final timeline | [Execution summary](09-execution-summary.jpg) |
+| Same history on the patched Vite/Undici environment | [After security patch](10-after-security-patch.jpg) |
 
 The [manifest](manifest.json) records capture timestamps, runtime source commit,
 project/run/approval identity, clip chapters and SHA-256 hashes of every asset.

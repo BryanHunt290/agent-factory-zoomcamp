@@ -491,7 +491,10 @@ and final submission preparation. Codex coordinated independent official-source
 research, documentation/rubric review, fresh reviewer setup and persistence checks,
 and visual evidence review. The primary agent captured the real approval flow in
 the browser, assembled a silent screen-capture GIF and prepared the submission
-fields. The owner supplied the certificate name. No application behavior or
-dependency pins changed for this evidence milestone. Results, limitations and
+fields. The owner supplied the certificate name. Application source stayed unchanged. The final CI install exposed two affected
+frontend development dependencies; an independent agent verified the official
+advisories, patched only Vite and Undici, and ran clean install/audit and frontend
+checks. Another agent repeated reviewer setup, startup and database checks; the
+primary agent captured the retained history in the patched browser environment. Results, limitations and
 source provenance are in [Day 3 validation](zoomcamp/DAY3_VALIDATION.md); actual
 course submission and peer reviews are not represented as completed.

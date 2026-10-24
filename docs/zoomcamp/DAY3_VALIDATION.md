@@ -1,7 +1,8 @@
 # Day 3 validation — October 24, 2026 UTC
 
-Day 3 prepared the submission evidence without changing application code,
-dependency pins or CI configuration. Runtime source matches public commit
+Day 3 prepared the submission evidence without changing application code or CI
+configuration. A [final security patch](DEPENDENCY_PATCH.md) updates only Vite
+8.3.2 → 8.3.3 and Undici 8.11.2 → 8.12.2. Application source matches public commit
 `e571dc3a8c965cdc4d24cb5d83bdc5bdf579ffd7`. The evidence commit must pass its own
 complete CI before it is selected for submission; the verified SHA and run are
 recorded separately in the submission release and local ready receipt.
@@ -51,7 +52,7 @@ the published captures. The following live state was observed:
 The fixture was inspected and a recovery copy preserved before approval. It was
 generated demonstration data, not an existing user project. Approval was checked
 separately from dispatch and success. Reload showed the completed run and
-persisted history. See the [48-second demo and nine screenshots](evidence/README.md).
+persisted history. See the [48-second demo and ten screenshots](evidence/README.md).
 The GIF uses real capture segments at 2 fps; capture gaps, restart downtime and
 two transient viewport-resize frames are omitted. Full-page captures preserve the
 detail. No fabricated UI, real model call or public deployment is claimed.
@@ -74,7 +75,10 @@ read-only database transaction confirmed:
 
 The sanitized [before/after proof](evidence/persistence.json) records these
 assertions. Raw local process/credential-path diagnostics are excluded from the
-public repository. The new public reviewer app remains available locally.
+public repository. The new public reviewer app remains available locally. After patching the two
+dependencies, setup and documented startup were repeated, then API, browser and
+read-only database checks again verified the same history. See the
+[patched runtime record](evidence/patched-runtime.json) and tenth screenshot.
 
 ## Documentation and delivery checks
 

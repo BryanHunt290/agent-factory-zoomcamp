@@ -1,0 +1,183 @@
+{
+  "date_utc": "2026-10-24",
+  "audit_before": {
+    "command": "npm.cmd audit --json",
+    "exit_code": 1,
+    "counts": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 2,
+      "critical": 0,
+      "total": 2
+    },
+    "interpretation": "Two vulnerable package entries, nine underlying advisories; aggregate severity is the highest per package.",
+    "packages": [
+      {
+        "name": "vite",
+        "version": "8.3.2",
+        "direct": true,
+        "dev": true
+      },
+      {
+        "name": "undici",
+        "version": "8.11.2",
+        "direct": false,
+        "dev": true,
+        "via": "jsdom 30.1.2",
+        "parent_range": "^8.11.2"
+      }
+    ],
+    "advisories": [
+      {
+        "package": "vite",
+        "id": "GHSA-587h-7wmj-h5pm",
+        "severity": "high",
+        "title": "launch-editor: Windows file-existence check bypass enables command injection when combined with escaping flaw",
+        "url": "https://github.com/vitejs/launch-editor/security/advisories/GHSA-587h-7wmj-h5pm",
+        "affected_locked_major": ">=8.3.0 <=8.3.2",
+        "fixed_locked_major": "8.3.3",
+        "underlying_package_fix": "launch-editor 2.14.2"
+      },
+      {
+        "package": "vite",
+        "id": "GHSA-698v-4r3x-3vcv",
+        "severity": "moderate",
+        "title": "launch-editor: missing percent escaping on Windows",
+        "url": "https://github.com/vitejs/launch-editor/security/advisories/GHSA-698v-4r3x-3vcv",
+        "affected_locked_major": ">=8.3.0 <=8.3.2",
+        "fixed_locked_major": "8.3.3",
+        "underlying_package_fix": "launch-editor 2.14.2"
+      },
+      {
+        "package": "vite",
+        "id": "GHSA-r825-w8mm-5pxw",
+        "severity": "moderate",
+        "title": "launch-editor: file paths interpreted as editor command-line flags",
+        "url": "https://github.com/vitejs/launch-editor/security/advisories/GHSA-r825-w8mm-5pxw",
+        "affected_locked_major": ">=8.3.0 <=8.3.2",
+        "fixed_locked_major": "8.3.3",
+        "underlying_package_fix": "launch-editor 2.14.2"
+      },
+      {
+        "package": "vite",
+        "id": "GHSA-9jrq-w75r-8gcw",
+        "severity": "low",
+        "title": "Cross-origin script execution in Vite custom HTML middleware",
+        "url": "https://github.com/vitejs/vite/security/advisories/GHSA-9jrq-w75r-8gcw",
+        "affected_locked_major": ">=8.3.0 <=8.3.2",
+        "fixed_locked_major": "8.3.3"
+      },
+      {
+        "package": "vite",
+        "id": "GHSA-rq7h-c2jc-7f22",
+        "severity": "moderate",
+        "title": "Vite dev-server filesystem boundary bypass for matching root-relative and system paths on non-Windows hosts",
+        "url": "https://github.com/vitejs/vite/security/advisories/GHSA-rq7h-c2jc-7f22",
+        "affected_locked_major": ">=8.3.0 <=8.3.2",
+        "fixed_locked_major": "8.3.3"
+      },
+      {
+        "package": "vite",
+        "id": "GHSA-vfpm-58rq-9qcg",
+        "severity": "moderate",
+        "title": "Vite wasm query reveals first four bytes outside configured filesystem boundary",
+        "url": "https://github.com/vitejs/vite/security/advisories/GHSA-vfpm-58rq-9qcg",
+        "affected_locked_major": ">=8.3.0 <=8.3.2",
+        "fixed_locked_major": "8.3.3"
+      },
+      {
+        "package": "undici",
+        "id": "GHSA-xjj6-f33q-929c",
+        "severity": "high",
+        "title": "Unhandled fetch stream error on excessive content encodings can terminate Node",
+        "url": "https://github.com/nodejs/undici/security/advisories/GHSA-xjj6-f33q-929c",
+        "affected_locked_major": ">=8.0.0 <8.12.2",
+        "fixed_locked_major": "8.12.2"
+      },
+      {
+        "package": "undici",
+        "id": "GHSA-4qv8-2p9j-2685",
+        "severity": "moderate",
+        "title": "Unbounded EventSource parser state can exhaust memory",
+        "url": "https://github.com/nodejs/undici/security/advisories/GHSA-4qv8-2p9j-2685",
+        "affected_locked_major": ">=8.0.0 <8.12.2",
+        "fixed_locked_major": "8.12.2"
+      },
+      {
+        "package": "undici",
+        "id": "GHSA-f72v-6w45-q472",
+        "severity": "moderate",
+        "title": "Mixed-case integrity algorithm tokens can bypass fetch integrity checking",
+        "url": "https://github.com/nodejs/undici/security/advisories/GHSA-f72v-6w45-q472",
+        "affected_locked_major": ">=8.0.0 <8.12.2",
+        "fixed_locked_major": "8.12.2"
+      }
+    ]
+  },
+  "lock_scope_verification": {
+    "other_package_entries_unchanged": 143,
+    "package_entries_added": 0,
+    "package_entries_removed": 0,
+    "overrides_added": false,
+    "package_json_only_change": "devDependencies.vite: 8.3.2 -> 8.3.3"
+  },
+  "validation": {
+    "npm_ci": {
+      "exit_code": 0,
+      "added_packages": 120,
+      "audited_packages": 121,
+      "reported_vulnerabilities": 0
+    },
+    "npm_audit": {
+      "auditReportVersion": 2,
+      "vulnerabilities": {},
+      "metadata": {
+        "vulnerabilities": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0,
+          "total": 0
+        },
+        "dependencies": {
+          "prod": 4,
+          "dev": 142,
+          "optional": 27,
+          "peer": 0,
+          "peerOptional": 0,
+          "total": 145
+        }
+      }
+    },
+    "frontend_check": {
+      "exit_code": 0,
+      "contract_check": "passed; generated schema matches openapi.yaml",
+      "typescript": "passed",
+      "tests_passed": 57,
+      "test_files_passed": 5,
+      "test_duration_seconds": 6.63
+    },
+    "build": {
+      "exit_code": 0,
+      "vite": "8.3.3",
+      "modules_transformed": 36,
+      "bundler_duration_ms": 87,
+      "production_bundle": "passed"
+    },
+    "git_diff_check": {
+      "exit_code": 0
+    }
+  },
+  "versions": {
+    "vite": {
+      "before": "8.3.2",
+      "after": "8.3.3"
+    },
+    "undici": {
+      "before": "8.11.2",
+      "after": "8.12.2"
+    }
+  }
+}

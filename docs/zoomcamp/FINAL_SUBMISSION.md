@@ -60,10 +60,11 @@ Start with the [reviewer guide](../REVIEWER_GUIDE.md), then the
 | --- | --- |
 | Evaluated public commit and branch | Exact evaluated commit URL is recorded in the verified submission release / local ready receipt after matching CI passes |
 | Complete CI on that commit | Matching completed run, tested SHA, job results and scope limits are recorded in the verified submission release / local ready receipt |
+| Dependency audit | Vite/Undici security patches validated; clean install and audit report 0 vulnerabilities; [patch record](DEPENDENCY_PATCH.md) |
 | Fresh reviewer startup | Passed with cached pinned dependencies in a fresh public-checkout environment; [commands and versions](DAY3_VALIDATION.md) |
 | Approval and completed execution | Captured: recorded approval, succeeded execution, one attempt, completed run; [demo](evidence/README.md) |
 | Reload/restart persistence | Passed: same project/run/decision/execution, exactly one attempt; [before/after proof](evidence/persistence.json) |
-| Demo and screenshot index | [48-second captured demo, nine screenshots and hashes](evidence/README.md) |
+| Demo and screenshot index | [48-second captured demo, ten screenshots and hashes](evidence/README.md) |
 | Course submission receipt | **PENDING:** platform confirmation and timestamp after submission |
 | Three peer reviews | **PENDING:** platform completion status by the separate deadline |
 

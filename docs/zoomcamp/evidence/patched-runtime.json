@@ -1,0 +1,83 @@
+{
+  "observed_at": "2026-10-24T06:03:59.2544202+00:00",
+  "validation_scope": "Offline cached setup, production build, authenticated API/frontend readiness and preserved database assertions. No new test-suite execution or npm audit in this step.",
+  "python": "Python 3.12.10",
+  "node": "v24.18.0",
+  "npm": "11.16.0",
+  "installed_vite": "8.3.3",
+  "installed_undici": "8.12.2",
+  "dependency_digest": "4ecb2b731e78394a794505544351d476ff0438b3b5fdf9292d9eeb25ccf3af9f",
+  "pip_check": "No broken requirements found.",
+  "readiness": {
+    "status": "ready"
+  },
+  "frontend_authenticated_proxy_status": "completed",
+  "run": {
+    "project_id": "prj-3443e74ecde6d072ae05",
+    "run_id": "review-approval",
+    "status": "completed",
+    "created_at": "2026-10-24T05:49:15.014523Z",
+    "updated_at": "2026-10-24T05:50:45.281484Z"
+  },
+  "approval_id": "apr-a54b55169e3c29e8",
+  "approval_status": "approved",
+  "decision_id": "apd-ccf3d974e404e92030a2",
+  "decision_at": "2026-10-24T05:50:44.698364Z",
+  "execution": {
+    "id": "axe-80933d736057b803f7ba",
+    "state": "succeeded",
+    "attempt": 1,
+    "retry_authorized_until": null,
+    "reconciliation": null
+  },
+  "timeline": [
+    {
+      "kind": "approval_requested",
+      "at": "2026-10-24T05:49:15.621517Z",
+      "attempt": null,
+      "outcome": null
+    },
+    {
+      "kind": "approved",
+      "at": "2026-10-24T05:50:44.698364Z",
+      "attempt": null,
+      "outcome": "approved"
+    },
+    {
+      "kind": "action_dispatching",
+      "at": "2026-10-24T05:50:45.015527Z",
+      "attempt": 1,
+      "outcome": null
+    },
+    {
+      "kind": "action_succeeded",
+      "at": "2026-10-24T05:50:45.026128Z",
+      "attempt": 1,
+      "outcome": null
+    },
+    {
+      "kind": "resolved",
+      "at": "2026-10-24T05:50:45.026128Z",
+      "attempt": null,
+      "outcome": "succeeded"
+    }
+  ],
+  "database_proof": {
+    "project_id": "prj-3443e74ecde6d072ae05",
+    "run_id": "review-approval",
+    "worker_id": null,
+    "fencing_token": 2,
+    "available_at": null,
+    "wake_seq": 1,
+    "claimed_wake_seq": 1,
+    "claim_updated_at": "2026-10-23T23:50:45.299108-06:00",
+    "decisions": 1,
+    "executions": 1,
+    "execution_attempts": 1
+  },
+  "unchanged_workflow_assertions_passed": true,
+  "no_requeue_or_duplicate_assertions_passed": true,
+  "setup_command": "py -3.12 scripts/reviewer.py setup --offline --wheelhouse <cached-wheelhouse>",
+  "start_command": "py -3.12 scripts/reviewer.py up",
+  "database_container_and_volume_unchanged": true
+}

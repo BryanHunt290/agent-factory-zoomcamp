@@ -4,7 +4,7 @@
     "2026-10-24T05:53:20.980000+00:00"
   ],
   "runtime_source_commit": "e571dc3a8c965cdc4d24cb5d83bdc5bdf579ffd7",
-  "source_scope": "Runtime code and dependency pins unchanged in the Day 3 evidence commit.",
+  "source_scope": "Application code matches e571dc3. Initial video/screenshots used Vite 8.3.2 and Undici 8.11.2; the final toolchain is patched to Vite 8.3.3 and Undici 8.12.2. Screenshot 10 and patched-runtime.json verify the patched app with the same persisted history.",
   "project_id": "prj-3443e74ecde6d072ae05",
   "run_id": "review-approval",
   "approval_id": "apr-a54b55169e3c29e8",
@@ -117,6 +117,17 @@
     "approval-demo.gif": {
       "bytes": 1110623,
       "sha256": "6566771b00fcf80977c57fa3513fb59fc595a2f89f0006c57d7a4361221c2714"
+    },
+    "10-after-security-patch.jpg": {
+      "bytes": 105436,
+      "sha256": "654e7f3b8130d04c3327f03b4834533e071296b8e63351d792033c3a7a2015d5"
     }
+  },
+  "post_patch_capture": {
+    "asset": "10-after-security-patch.jpg",
+    "captured_utc": "2026-10-24T06:03:49.622848+00:00",
+    "vite": "8.3.3",
+    "undici": "8.12.2",
+    "proof": "patched-runtime.json"
   }
 }
