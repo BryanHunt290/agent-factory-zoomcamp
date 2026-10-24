@@ -188,6 +188,31 @@ print(json.dumps(result))
                 "Expected five durable fixture artifacts with content hashes.")
         return result
 
+    def wait_healthy(self, resources: dict, *, timeout: float = 180) -> None:
+        """Compose 2.38 start has no --wait; poll only the proven owned IDs."""
+        expected = {name: resources[name]["container_id"] for name in ("app", "db")}
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            records = json.loads(self.docker("inspect", *expected.values()))
+            require(len(records) == 2 and {record["Id"] for record in records} == set(expected.values()),
+                    "Restart health check returned unexpected container identities.")
+            healthy = True
+            for record in records:
+                labels = record.get("Config", {}).get("Labels", {})
+                service = labels.get("com.docker.compose.service")
+                require(labels.get("com.docker.compose.project") == self.project and expected.get(service) == record["Id"],
+                        "Restart health check refused foreign container ownership.")
+                state = record.get("State", {})
+                require(state.get("Running") is True and type(state.get("Pid")) is int and state["Pid"] > 1,
+                        "An owned service exited during restart.")
+                health = state.get("Health", {}).get("Status")
+                require(health in {"starting", "healthy"}, "An owned service has no valid healthy/starting health check.")
+                healthy = healthy and health == "healthy"
+            if healthy:
+                return
+            time.sleep(1)
+        raise SmokeError("Owned app and database did not become healthy within the bounded restart wait.")
+
 
 def api(stack: Stack, path: str, *, token: str = "", body: dict | None = None, expected: int = 200) -> dict:
     status, result = reviewer.http(stack.port, path, token=token, body=body)
@@ -246,7 +271,8 @@ def exercise(stack: Stack, directory: Path) -> dict:
     check_completed(before_run, before_approval)
     workspace_before = stack.workspace_identity(project)
     stack.compose("stop", "--timeout", "30", "app", "db")
-    stack.compose("start", "--wait", "--wait-timeout", "180", "db", "app", timeout=240)
+    stack.compose("start", "db", "app", timeout=240)
+    stack.wait_healthy(resources_before)
     # Acceptance of the still-valid old token proves the signing identity and
     # enrolled principal survived, before reading the freshly issued token.
     api(stack, "/api/v1/projects", token=token)

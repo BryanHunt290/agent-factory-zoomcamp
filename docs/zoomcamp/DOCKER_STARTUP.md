@@ -44,13 +44,14 @@ application image runs Python 3.12.10 and Node 24.18.0; PostgreSQL reports 17.11
 | Check | Observed result |
 | --- | --- |
 | Existing Python default suite | 1,889 passed, 467 skipped, one warning; 133.50 s |
-| New runtime and smoke guard tests | 95 passed; 0.91 s |
-| Isolated mutation audit | All 11 deliberate regressions caught; original source hashes unchanged. Its baseline was 94 tests; the final additional test checks build-context credential exclusions. |
+| New runtime and smoke guard tests | 104 passed after the Compose compatibility fix; 0.89 s |
+| Isolated mutation audit | All 13 deliberate regressions caught against the final 104-test baseline; original source hashes unchanged. This includes skipping restart health checks and accepting foreign ownership. |
 | Frontend contracts, types, unit tests and build | Passed; 57 tests in five files; production bundle built |
 | PostgreSQL integration, excluding browser and Docker-live tiers | 353 passed, 2,093 deselected, one warning; 175.25 s |
 | Real installed-Chrome browser workflows, excluding Docker-live tiers | 42 passed, 2,408 deselected, one warning; 430.21 s |
 | Docker configuration and CI lint | `docker compose config --quiet`, `git diff --check` and actionlint 1.7.7 passed |
 | Fresh Compose approval and restart check | Passed; [machine-readable evidence](evidence/docker-compose-smoke.json) |
+| Compose restart compatibility check | Fresh isolated stack passed with the version-compatible restart command; [additional evidence](evidence/docker-compose-compatibility-smoke.json) |
 | Exact documented startup command | `docker compose up --build -d --wait` passed in a separate default project; app and DB healthy, frontend published only at 127.0.0.1:15473 |
 | Manual browser check | Signed in with the generated token file; live API-backed dashboard shows the seeded pending approval; [screenshot](evidence/docker-dashboard.png) |
 
@@ -105,6 +106,13 @@ Problems found and fixed during implementation and independent review:
    local Docker endpoint is pinned for later operations.
 7. Readiness-file cleanup failures must still close every supervised child.
 8. The build context excludes credentials even inside an allowed source tree.
+9. The [first candidate CI run](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions/runs/40092778923)
+   found a Compose-version mismatch after startup and the approval flow had
+   passed. Its Docker Compose v2.38.2 has no `start --wait` flags. The check now
+   uses plain `start db app`, then polls only the proven owned container IDs
+   for running/healthy status with a deadline. Ownership, authentication and
+   all persistence comparisons remain enforced. The corrected check passed on
+   a fresh local stack; the replacement commit requires its own full green CI.
 
 The failed frontend-startup project was stopped with its data retained. No
 failure was hidden with skips or weakened assertions. The passing result is from
@@ -141,6 +149,7 @@ Only amd64 containers were exercised; arm64 has not been independently verified.
 Evidence SHA256 (committed files; JSON uses LF line endings):
 
 - `docker-compose-smoke.json`: `7a63072a21a0c6f0dabb888965d70bf3d9a7bafaca16b95b7fc7caa321615094`
+- `docker-compose-compatibility-smoke.json`: `3c76ea247877f6cc05e7b6b3cb6a0ab157416813b3770fbb6d98a5edb25aa2d5`
 - `docker-dashboard.png`: `5a1717ba9b69100f20599be0a7a2b60b5ee8699ba5fe4beceb2264873d05435b`
 
 ## CI and course-submission gate

@@ -216,6 +216,63 @@ def test_cleanup_targets_only_the_owned_process_tree(monkeypatch):
         assert calls == [(123456, smoke.signal.SIGKILL)]
 
 
+def health_records(stack, *, status="healthy"):
+    return [{"Id": name + "-id", "Config": {"Labels": {"com.docker.compose.project": stack.project,
+             "com.docker.compose.service": name}}, "State": {"Running": True, "Pid": 100 + i,
+             "Health": {"Status": status}}} for i, name in enumerate(("app", "db"))]
+
+
+def owned_ids():
+    return {name: {"container_id": name + "-id"} for name in ("app", "db")}
+
+
+def test_restart_health_waits_for_both_owned_services(monkeypatch):
+    stack = smoke.Stack("af-smoke-12345678", 15473)
+    replies = [health_records(stack, status="starting"), health_records(stack)]
+    calls, sleeps = [], []
+    monkeypatch.setattr(stack, "docker", lambda *args: calls.append(args) or json.dumps(replies.pop(0)))
+    monkeypatch.setattr(smoke.time, "sleep", lambda seconds: sleeps.append(seconds))
+    stack.wait_healthy(owned_ids())
+    assert calls == [("inspect", "app-id", "db-id")] * 2
+    assert sleeps == [1]
+
+
+@pytest.mark.parametrize("tamper", ["foreign_project", "wrong_service", "wrong_id", "dead", "missing_pid", "unhealthy", "missing_health"])
+def test_restart_health_refuses_foreign_or_invalid_service_state(monkeypatch, tamper):
+    stack = smoke.Stack("af-smoke-12345678", 15473)
+    records = health_records(stack)
+    record = records[0]
+    if tamper == "foreign_project":
+        record["Config"]["Labels"]["com.docker.compose.project"] = "foreign"
+    elif tamper == "wrong_service":
+        record["Config"]["Labels"]["com.docker.compose.service"] = "db"
+    elif tamper == "wrong_id":
+        record["Id"] = "foreign-id"
+    elif tamper == "dead":
+        record["State"]["Running"] = False
+    elif tamper == "missing_pid":
+        record["State"]["Pid"] = 0
+    elif tamper == "unhealthy":
+        record["State"]["Health"]["Status"] = "unhealthy"
+    else:
+        del record["State"]["Health"]
+    monkeypatch.setattr(stack, "docker", lambda *a: json.dumps(records))
+    with pytest.raises(smoke.SmokeError):
+        stack.wait_healthy(owned_ids())
+
+
+def test_restart_health_wait_is_bounded(monkeypatch):
+    stack = smoke.Stack("af-smoke-12345678", 15473)
+    ticks = iter([0, 0, 1, 2])
+    calls = []
+    monkeypatch.setattr(smoke.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(smoke.time, "sleep", lambda _: None)
+    monkeypatch.setattr(stack, "docker", lambda *args: calls.append(args) or json.dumps(health_records(stack, status="starting")))
+    with pytest.raises(smoke.SmokeError, match="bounded restart wait"):
+        stack.wait_healthy(owned_ids(), timeout=2)
+    assert len(calls) == 2
+
+
 @pytest.mark.parametrize("tamper", ["record", "resource", "workspace", "duplicate_run"])
 def test_restart_must_preserve_records_resources_and_single_run(monkeypatch, tmp_path, tamper):
     stack = smoke.Stack("af-smoke-12345678", 15473)
@@ -224,8 +281,10 @@ def test_restart_must_preserve_records_resources_and_single_run(monkeypatch, tmp
     approval_reads = []
     workspace_reads = []
     commands = []
+    waits = []
     monkeypatch.setattr(stack, "copy_identity", lambda _: ("secret-token", PROJECT))
     monkeypatch.setattr(stack, "compose", lambda *args, **kw: commands.append(args))
+    monkeypatch.setattr(stack, "wait_healthy", lambda resources: waits.append(resources))
 
     def resources():
         resource_reads.append(True)
@@ -256,4 +315,5 @@ def test_restart_must_preserve_records_resources_and_single_run(monkeypatch, tmp
     monkeypatch.setattr(smoke, "api", api)
     with pytest.raises(smoke.SmokeError, match="Restart"):
         smoke.exercise(stack, tmp_path)
-    assert commands == [("stop", "--timeout", "30", "app", "db"), ("start", "--wait", "--wait-timeout", "180", "db", "app")]
+    assert commands == [("stop", "--timeout", "30", "app", "db"), ("start", "db", "app")]
+    assert waits == [{"app": "same"}]
