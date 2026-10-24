@@ -1,0 +1,31 @@
+# HOSTILE: try to write/modify/delete outside the sandbox's writable tmpfs. argv: host paths.
+import json, os, sys
+
+targets = sys.argv[1:] + [
+    "/af-escape", "/etc/af-escape", "/usr/af-escape", "/usr/local/bin/af-escape", "/work/../af-escape",
+    "/work/../../etc/af-escape", "/proc/1/root/af-escape", "/proc/self/root/etc/af-escape",
+    "/run/desktop/mnt/host/c/af-escape", "/mnt/c/af-escape", "/host_mnt/c/af-escape", "/mnt/host/c/af-escape",
+]
+report = {}
+for path in targets:
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "ab") as f:
+            f.write(b"ESCAPED")
+        report[path] = {"written": os.path.realpath(path)}
+    except OSError as e:
+        report[path] = {"errno": e.errno}
+
+
+def _rename(p):
+    os.rename(p, p + ".x")
+
+
+for victim in ("/usr/local/bin/af-entry", "/etc/passwd", "/usr/local/bin/python3"):
+    for action, fn in (("chmod", lambda p: os.chmod(p, 0o777)), ("unlink", os.unlink), ("rename", _rename)):
+        try:
+            fn(victim)
+            report[f"{action}:{victim}"] = "SUCCEEDED"
+        except OSError as e:
+            report[f"{action}:{victim}"] = e.errno
+print("RESULT " + json.dumps(report))

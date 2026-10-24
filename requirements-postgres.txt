@@ -1,0 +1,12 @@
+# Optional: the PostgreSQL product store (docs/database.md).
+# Agent Factory itself and its default test suite need none of this.
+#
+# Install into the project's virtual environment, never globally:
+#   py -3.12 -m venv --system-site-packages .venv
+#   .venv\Scripts\python -m pip install -r requirements-postgres.txt
+#
+# Exact versions, verified against PostgreSQL 17.11 on 2026-10-02.
+psycopg==3.3.6
+psycopg-binary==3.3.6
+typing-extensions==4.16.0 ; python_version < "3.13"
+tzdata==2026.3 ; sys_platform == "win32"

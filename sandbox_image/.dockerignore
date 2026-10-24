@@ -1,0 +1,4 @@
+# Only the Dockerfile and af-entry form the build context.
+*
+!Dockerfile
+!af-entry

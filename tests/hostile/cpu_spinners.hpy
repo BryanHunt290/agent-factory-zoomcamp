@@ -1,0 +1,44 @@
+# HOSTILE: N processes spin on the CPU for a fixed wall time; reports how much CPU they actually got.
+# argv: n_processes seconds
+import json, os, resource, sys, time
+
+n, seconds = int(sys.argv[1]), float(sys.argv[2])
+
+
+def cgroup(name):
+    try:
+        return open(f"/sys/fs/cgroup/{name}").read().strip()
+    except OSError as e:
+        return f"errno {e.errno}"
+
+
+def stat(key):
+    for line in cgroup("cpu.stat").splitlines():
+        k, _, v = line.partition(" ")
+        if k == key:
+            return int(v)
+    return None
+
+
+u0, thr0, t0 = stat("usage_usec"), stat("nr_throttled"), time.monotonic()
+children = []
+for _ in range(n):
+    pid = os.fork()
+    if pid == 0:
+        end = time.monotonic() + seconds
+        x = 0
+        while time.monotonic() < end:
+            x += 1
+        os._exit(0)
+    children.append(pid)
+for pid in children:
+    os.waitpid(pid, 0)
+wall = time.monotonic() - t0
+u1, thr1 = stat("usage_usec"), stat("nr_throttled")
+ru = resource.getrusage(resource.RUSAGE_CHILDREN)
+print("RESULT " + json.dumps({
+    "procs": n, "wall_s": wall, "children_cpu_s": ru.ru_utime + ru.ru_stime,
+    "cgroup_cpu_s": (u1 - u0) / 1e6 if None not in (u0, u1) else None,
+    "nr_throttled": (thr1 - thr0) if None not in (thr0, thr1) else None,
+    "cpu_max": cgroup("cpu.max"), "visible_cpus": os.cpu_count(),
+}))

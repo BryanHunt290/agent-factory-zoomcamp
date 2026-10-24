@@ -1,0 +1,16 @@
+# HOSTILE: burn CPU forever in one process, reporting CPU time used. argv: [ignore-sigxcpu]
+import signal, sys, time
+
+if "ignore-sigxcpu" in sys.argv[1:]:
+    signal.signal(signal.SIGXCPU, signal.SIG_IGN)
+for line in open("/proc/self/limits"):
+    if line.startswith("Max cpu time"):
+        print("LIMIT " + " ".join(line.split()[3:5]), flush=True)
+next_report, x = 0.0, 0
+while True:
+    x += 1
+    if x % 100000 == 0:
+        cpu = time.process_time()
+        if cpu >= next_report:
+            print(f"cpu {cpu:.2f}", flush=True)
+            next_report = cpu + 0.1

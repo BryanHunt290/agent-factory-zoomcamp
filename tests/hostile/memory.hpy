@@ -1,0 +1,7 @@
+# HOSTILE: allocate far beyond the memory limit (stops at 512 MiB if never limited).
+chunks, total = [], 0
+while total < 512 * 1024 * 1024:
+    chunks.append(b"\x01" * (8 * 1024 * 1024))
+    total += 8 * 1024 * 1024
+    print(total, flush=True)
+print("UNBOUNDED: allocated", total, flush=True)

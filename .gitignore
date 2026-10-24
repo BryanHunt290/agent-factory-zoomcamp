@@ -1,0 +1,54 @@
+# Python bytecode / build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Frontend dependencies (frontend/package-lock.json pins them exactly; build output is ignored by dist/ above)
+node_modules/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Test, coverage and tool caches
+.pytest_cache/
+.pytest_tmp/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Demo workspaces created by `python -m agent_factory demo`
+workspaces/
+
+# Agent Factory runtime state (checkpoints, execution logs) wherever it appears
+.agent_factory/
+
+# Logs
+*.log
+
+# Secrets and credentials
+# .local/ holds the development database's generated passwords and connection URLs (docs/database.md)
+.local/
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials.json
+
+# Editor / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local assistant configuration is not submission source
+.codex/

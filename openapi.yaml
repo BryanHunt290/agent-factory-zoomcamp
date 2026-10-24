@@ -1,0 +1,2869 @@
+openapi: 3.1.0
+info:
+  title: Agent Factory API
+  version: 1.0.0-draft
+  summary: Contract between the dashboard, the mobile approval screen, and the Agent Factory backend.
+  description: |
+    **Status: DRAFT CONTRACT, implemented by a local development backend**
+    (`python -m agent_factory api serve`; see `docs/backend.md`). It was
+    designed contract-first, before any backend code (see
+    `docs/api-contract.md`). Every operation requires an authenticated
+    identity holding the operation's permission (`x-permission`; see
+    `docs/authentication.md`). The backend still listens on 127.0.0.1 only:
+    public exposure needs a deployment design that does not exist yet.
+
+    ## What the API is for
+
+    - Show projects, their runs, and the milestones they reached, for example
+      what happened overnight.
+    - Show approval requests, and record a human decision on one.
+    - Create a project from a template.
+
+    ## What the API deliberately cannot do
+
+    These capabilities are absent by design. They are not merely unimplemented.
+
+    - Run commands, shell scripts, or sandbox executions.
+    - Change a run's execution state: start, stop, resume, or edit the graph
+      or checkpoint. Workers own execution.
+    - Create, edit, or delete milestones. Agent Factory produces them.
+    - Change an approval request or its action fingerprint.
+    - Set a decision's time or actor, or mark any identity as verified. The
+      server decides these.
+
+    A recorded APPROVED decision never authorizes anything by itself. A
+    worker applies it only after re-checking that its action fingerprint
+    still matches the exact action the engine is paused on.
+
+    ## Conventions
+
+    - **Versioning:** all paths start with `/api/v1`. Within v1, changes are
+      additive only. Breaking changes require `/api/v2`.
+    - **Time:** every timestamp is UTC ISO 8601 ending in `Z`, for example
+      `2026-10-02T06:16:00.000000Z`. Clients convert to local time for display.
+    - **Errors:** problem details (RFC 9457) as `application/problem+json`,
+      with a stable `code` and a `request_id`. They never contain stack
+      traces, credentials, file paths, or database details. A path or method
+      outside this contract gets 404 `route_not_found` or 405
+      `method_not_allowed`, in the same format.
+    - **Pagination:** cursor-based; `limit` plus an opaque `cursor`, and pages
+      of `items` with `next_cursor`.
+    - **Authentication:** every operation needs `Authorization: Bearer
+      <token>`, a JWT access token from the configured OpenID Connect
+      provider, verified by the backend (signature with the provider's
+      published keys, issuer, audience, expiry). The identity is the token's
+      issuer and subject, mapped to an enrolled principal; an email address
+      never identifies anyone. No production identity provider is chosen
+      yet; a local development issuer exists for development only.
+    - **Authorization:** each operation requires exactly one permission,
+      named in its `x-permission`, checked on the server for every request.
+      No permission implies another. 401: no credential, or a refused one.
+      403: a valid identity without the permission. 429: too many refused
+      credentials, or too many decisions.
+tags:
+  - name: projects
+    description: Projects handed to Agent Factory, with their current status.
+  - name: templates
+    description: The kinds of project Agent Factory can run.
+  - name: runs
+    description: Executions of a project's workflow. Read-only; workers own execution.
+  - name: milestones
+    description: Human-facing progress. Read-only; Agent Factory produces milestones.
+  - name: approvals
+    description: Protected actions waiting for a human decision, and those decisions.
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List projects (the dashboard)
+      description: |
+        Projects, newest first (by creation time, then ID). Each one carries
+        its current status, its latest run, and its number of pending
+        approvals.
+
+        Pass `activity_since` to also count each project's milestones reached
+        since that time. This is how the dashboard shows "7 milestones
+        overnight" in a single request.
+      x-permission: projects:read
+      parameters:
+        - $ref: '#/components/parameters/ActivitySince'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: A page of projects.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectSummaryPage'
+              examples:
+                dashboard:
+                  summary: Two projects, with overnight activity
+                  value:
+                    items:
+                      - id: prj-4f6c2a9e1b7d3c5a8e0f
+                        name: Client ETL Pipeline
+                        template: data-pipeline
+                        status: awaiting_approval
+                        latest_run:
+                          run_id: run-2
+                          number: 2
+                          status: awaiting_approval
+                          updated_at: '2026-10-02T06:16:00.000000Z'
+                        pending_approvals: 1
+                        activity:
+                          since: '2026-10-02T02:00:00.000000Z'
+                          milestones: 7
+                      - id: prj-9b1e7c3a5d2f8e4c6a0b
+                        name: Invoice Calculator
+                        template: calculator
+                        status: completed
+                        latest_run:
+                          run_id: run-1
+                          number: 1
+                          status: completed
+                          updated_at: '2026-10-02T09:20:00.000000Z'
+                        pending_approvals: 0
+                        activity:
+                          since: '2026-10-02T02:00:00.000000Z'
+                          milestones: 12
+                    next_cursor: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a project from a template
+      description: |
+        Registers a new project. Its stable ID is generated by the server and
+        is never derived from a path. Its milestone vocabulary comes from the
+        template.
+
+        This does not start a run, and it does not touch any filesystem the
+        client can see. A worker prepares the project's workspace when it
+        first needs it.
+
+        **Idempotency:** the `Idempotency-Key` header is required.
+        - Repeating a request with the same key and the same body returns the
+          original response (same status and body) with
+          `Idempotent-Replayed: true`. A retried request never creates a
+          second project.
+        - The same key with a different body is refused with 409 Conflict,
+          `idempotency_key_reused`: the key is already bound to a different
+          request. Send the new request with a new key.
+        - While the first request with a key is still being processed, the
+          same key gets 409 Conflict, `idempotency_key_in_use`: retry the
+          same request later.
+        - Keys are kept for at least 24 hours.
+      x-permission: projects:create
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+            examples:
+              calculator:
+                summary: A project from the calculator template
+                value:
+                  name: Invoice Calculator
+                  template: calculator
+                  description: Four-function calculator used by the invoicing service.
+      responses:
+        '201':
+          description: The project was created (or this is a replay of the request that created it).
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+            Idempotent-Replayed:
+              $ref: '#/components/headers/IdempotentReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+              examples:
+                created:
+                  summary: A new project, no runs yet
+                  value:
+                    id: prj-9b1e7c3a5d2f8e4c6a0b
+                    name: Invoice Calculator
+                    description: Four-function calculator used by the invoicing service.
+                    template: calculator
+                    created_at: '2026-10-01T15:00:00.000000Z'
+                    status: not_started
+                    latest_run: null
+                    pending_approvals: 0
+                    activity: null
+                    milestone_types:
+                      - type: human_decision
+                        title: Human decision
+                        category: approval
+                        description: A protected action waited for, and then received, a human decision.
+                        order: null
+                      - type: run_finished
+                        title: Run finished
+                        category: lifecycle
+                        description: The run reached a final state.
+                        order: null
+                      - type: plan_ready
+                        title: Plan ready
+                        category: workflow
+                        description: A structured plan was produced.
+                        order: 1
+                      - type: implementation_ready
+                        title: Implementation ready
+                        category: workflow
+                        description: Code was written for the plan.
+                        order: 2
+                      - type: tests_passing
+                        title: Tests passing
+                        category: workflow
+                        description: The project's tests pass.
+                        order: 3
+                      - type: review_approved
+                        title: Review approved
+                        category: workflow
+                        description: A reviewer approved the implementation.
+                        order: 4
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/projects/{project_id}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectIdPath'
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get one project and its current status
+      description: |
+        The project, its current status (that of its latest run), and its
+        milestone vocabulary. A client can use the vocabulary's `order` to
+        show milestones that have not been reached yet.
+      x-permission: projects:read
+      parameters:
+        - $ref: '#/components/parameters/ActivitySince'
+      responses:
+        '200':
+          description: The project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+              examples:
+                waiting:
+                  summary: A project whose run is waiting for an approval
+                  value:
+                    id: prj-4f6c2a9e1b7d3c5a8e0f
+                    name: Client ETL Pipeline
+                    description: Nightly load of client sales data into the warehouse.
+                    template: data-pipeline
+                    created_at: '2026-09-28T14:05:00.000000Z'
+                    status: awaiting_approval
+                    latest_run:
+                      run_id: run-2
+                      number: 2
+                      status: awaiting_approval
+                      updated_at: '2026-10-02T06:16:00.000000Z'
+                    pending_approvals: 1
+                    activity:
+                      since: '2026-10-02T02:00:00.000000Z'
+                      milestones: 7
+                    milestone_types:
+                      - type: human_decision
+                        title: Human decision
+                        category: approval
+                        description: A protected action waited for, and then received, a human decision.
+                        order: null
+                      - type: run_finished
+                        title: Run finished
+                        category: lifecycle
+                        description: The run reached a final state.
+                        order: null
+                      - type: plan_ready
+                        title: Plan ready
+                        category: workflow
+                        description: A structured plan was produced.
+                        order: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/templates:
+    get:
+      operationId: listTemplates
+      tags: [templates]
+      summary: List the templates a project can be created from
+      description: |
+        The template names `createProject` accepts, with each template's
+        milestone vocabulary. The list is short, so it is not paginated.
+      x-permission: projects:read
+      responses:
+        '200':
+          description: All templates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateList'
+              examples:
+                today:
+                  summary: The one template that exists today
+                  value:
+                    items:
+                      - name: calculator
+                        description: Implement a four-function calculator module that passes the acceptance tests.
+                        milestone_types:
+                          - type: plan_ready
+                            title: Plan ready
+                            category: workflow
+                            description: A structured plan was produced.
+                            order: 1
+                          - type: tests_passing
+                            title: Tests passing
+                            category: workflow
+                            description: The project's tests pass.
+                            order: 3
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/projects/{project_id}/runs:
+    parameters:
+      - $ref: '#/components/parameters/ProjectIdPath'
+    get:
+      operationId: listRuns
+      tags: [runs]
+      summary: List a project's runs
+      description: Runs of one project, newest first (by run number).
+      x-permission: runs:read
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: A page of runs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunPage'
+              examples:
+                two_runs:
+                  summary: The second run is waiting for an approval
+                  value:
+                    items:
+                      - project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                        run_id: run-2
+                        number: 2
+                        workflow: data-pipeline-v1
+                        status: awaiting_approval
+                        status_reason: Waiting for a decision on a protected action.
+                        pending_approval_id: apr-d2d69f6b7a0ce595
+                        created_at: '2026-10-02T03:30:00.000000Z'
+                        updated_at: '2026-10-02T06:16:00.000000Z'
+                        model_usage:
+                          calls: 6
+                          failed_calls: 0
+                          input_tokens: 18420
+                          output_tokens: 3110
+                          cached_tokens: 2048
+                          estimated_cost_usd: null
+                          by_model:
+                            - provider: anthropic
+                              model: example-model
+                              calls: 6
+                              input_tokens: 18420
+                              output_tokens: 3110
+                              cached_tokens: 2048
+                      - project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                        run_id: run-1
+                        number: 1
+                        workflow: data-pipeline-v1
+                        status: completed
+                        status_reason: null
+                        pending_approval_id: null
+                        created_at: '2026-09-28T14:10:00.000000Z'
+                        updated_at: '2026-09-28T15:02:00.000000Z'
+                        model_usage:
+                          calls: 4
+                          failed_calls: 0
+                          input_tokens: 0
+                          output_tokens: 0
+                          cached_tokens: 0
+                          estimated_cost_usd: null
+                          by_model:
+                            - provider: fake
+                              model: fake-deterministic-1
+                              calls: 4
+                              input_tokens: 0
+                              output_tokens: 0
+                              cached_tokens: 0
+                    next_cursor: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/projects/{project_id}/runs/{run_id}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectIdPath'
+      - $ref: '#/components/parameters/RunIdPath'
+    get:
+      operationId: getRun
+      tags: [runs]
+      summary: Get one run and its current status
+      x-permission: runs:read
+      responses:
+        '200':
+          description: The run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Run'
+              examples:
+                waiting:
+                  summary: Paused for an approval
+                  value:
+                    project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                    run_id: run-2
+                    number: 2
+                    workflow: data-pipeline-v1
+                    status: awaiting_approval
+                    status_reason: Waiting for a decision on a protected action.
+                    pending_approval_id: apr-d2d69f6b7a0ce595
+                    created_at: '2026-10-02T03:30:00.000000Z'
+                    updated_at: '2026-10-02T06:16:00.000000Z'
+                    model_usage:
+                      calls: 6
+                      failed_calls: 0
+                      input_tokens: 18420
+                      output_tokens: 3110
+                      cached_tokens: 2048
+                      estimated_cost_usd: null
+                      by_model:
+                        - provider: anthropic
+                          model: example-model
+                          calls: 6
+                          input_tokens: 18420
+                          output_tokens: 3110
+                          cached_tokens: 2048
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/projects/{project_id}/milestones:
+    parameters:
+      - $ref: '#/components/parameters/ProjectIdPath'
+    get:
+      operationId: listProjectMilestones
+      tags: [milestones]
+      summary: List a project's milestones (e.g. overnight progress)
+      description: |
+        Milestones of all of a project's runs, in chronological order: by
+        `occurred_at`, then `run_id`, then `sequence`.
+
+        The overnight view is this query with `since` and `until`. Combine it
+        with the project's status and its pending approvals. Every milestone
+        whose current status was reached in the window is returned, so a
+        client can derive:
+        - what succeeded: `status` completed;
+        - what failed: failed;
+        - what was repaired: `resolves_milestone_id` is set;
+        - what is blocked: blocked.
+
+        A milestone's `occurred_at` moves forward when its status changes, so
+        a milestone can appear again, with its new status, on a later page of
+        the same listing. Clients keep the latest copy of each `id`.
+      x-permission: milestones:read
+      parameters:
+        - $ref: '#/components/parameters/Since'
+        - $ref: '#/components/parameters/Until'
+        - $ref: '#/components/parameters/MilestoneStatusFilter'
+        - $ref: '#/components/parameters/MilestoneCategoryFilter'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: A page of milestones.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilestonePage'
+              examples:
+                overnight:
+                  summary: 'Overnight progress, 22:00-07:00 New York time (EDT, UTC-4)'
+                  value:
+                    items:
+                      - id: ms-669b73e90843c2bc78ba
+                        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                        run_id: run-2
+                        sequence: 1
+                        type: plan_ready
+                        category: workflow
+                        title: Plan ready
+                        summary: Load the client sales files into the warehouse in three steps.
+                        status: completed
+                        occurred_at: '2026-10-02T03:42:00.000000Z'
+                        source: {node: planner, agent: planner}
+                        follows: null
+                        resolves_milestone_id: null
+                        approval_id: null
+                      - id: ms-afb5bd61d240d31147e6
+                        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                        run_id: run-2
+                        sequence: 2
+                        type: implementation_ready
+                        category: workflow
+                        title: Implementation ready
+                        summary: Loader, transformer, and warehouse writer implemented.
+                        status: completed
+                        occurred_at: '2026-10-02T04:18:00.000000Z'
+                        source: {node: developer, agent: developer}
+                        follows: {node: planner, outcome: planned}
+                        resolves_milestone_id: null
+                        approval_id: null
+                      - id: ms-0176bde3b6b7d006ec20
+                        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                        run_id: run-2
+                        sequence: 3
+                        type: tests_passing
+                        category: workflow
+                        title: Tests passing
+                        summary: 12 tests, FAILED (2 failing)
+                        status: failed
+                        occurred_at: '2026-10-02T04:51:00.000000Z'
+                        source: {node: tester, agent: tester}
+                        follows: {node: developer, outcome: implemented}
+                        resolves_milestone_id: null
+                        approval_id: null
+                      - id: ms-34f4fbf1044325c00207
+                        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                        run_id: run-2
+                        sequence: 4
+                        type: implementation_ready
+                        category: workflow
+                        title: Implementation ready
+                        summary: Fix date parsing for European formats.
+                        status: completed
+                        occurred_at: '2026-10-02T05:31:00.000000Z'
+                        source: {node: developer, agent: developer}
+                        follows: {node: tester, outcome: fail}
+                        resolves_milestone_id: null
+                        approval_id: null
+                      - id: ms-b5e25680253d1631e6b0
+                        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                        run_id: run-2
+                        sequence: 5
+                        type: tests_passing
+                        category: workflow
+                        title: Tests passing
+                        summary: 12 tests, passed
+                        status: completed
+                        occurred_at: '2026-10-02T05:42:00.000000Z'
+                        source: {node: tester, agent: tester}
+                        follows: {node: developer, outcome: implemented}
+                        resolves_milestone_id: ms-0176bde3b6b7d006ec20
+                        approval_id: null
+                      - id: ms-adbb0998142201d66f65
+                        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                        run_id: run-2
+                        sequence: 6
+                        type: review_approved
+                        category: workflow
+                        title: Review approved
+                        summary: Correct, tested, documented.
+                        status: completed
+                        occurred_at: '2026-10-02T06:14:00.000000Z'
+                        source: {node: reviewer, agent: reviewer}
+                        follows: {node: tester, outcome: pass}
+                        resolves_milestone_id: null
+                        approval_id: null
+                      - id: ms-7a57604ba8e5bafff947
+                        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                        run_id: run-2
+                        sequence: 7
+                        type: human_decision
+                        category: approval
+                        title: Human decision
+                        summary: 'Approval needed: deployer wants to run deploy_release'
+                        status: blocked
+                        occurred_at: '2026-10-02T06:16:00.000000Z'
+                        source: {node: deploy, agent: deployer}
+                        follows: null
+                        resolves_milestone_id: null
+                        approval_id: apr-d2d69f6b7a0ce595
+                    next_cursor: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/projects/{project_id}/runs/{run_id}/milestones:
+    parameters:
+      - $ref: '#/components/parameters/ProjectIdPath'
+      - $ref: '#/components/parameters/RunIdPath'
+    get:
+      operationId: listRunMilestones
+      tags: [milestones]
+      summary: List one run's milestones (its timeline)
+      description: |
+        Milestones of one run, in chronological order. The same rules apply
+        as for the project-wide listing. Returns 404 if the run does not
+        exist, rather than an empty list.
+      x-permission: milestones:read
+      parameters:
+        - $ref: '#/components/parameters/Since'
+        - $ref: '#/components/parameters/Until'
+        - $ref: '#/components/parameters/MilestoneStatusFilter'
+        - $ref: '#/components/parameters/MilestoneCategoryFilter'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: A page of the run's milestones.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilestonePage'
+              examples:
+                first_page:
+                  summary: First page of a long timeline
+                  value:
+                    items:
+                      - id: ms-669b73e90843c2bc78ba
+                        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                        run_id: run-2
+                        sequence: 1
+                        type: plan_ready
+                        category: workflow
+                        title: Plan ready
+                        summary: Load the client sales files into the warehouse in three steps.
+                        status: completed
+                        occurred_at: '2026-10-02T03:42:00.000000Z'
+                        source: {node: planner, agent: planner}
+                        follows: null
+                        resolves_milestone_id: null
+                        approval_id: null
+                    next_cursor: eyJrIjpbIjIwMjYtMTAtMDJUMDM6NDI6MDAuMDAwMDAwWiIsInJ1bi0yIiwxXX0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/approvals:
+    get:
+      operationId: listPendingApprovals
+      tags: [approvals]
+      summary: List approvals waiting for a decision (the approval inbox)
+      description: |
+        Pending approval requests across all projects, oldest first (by
+        `requested_at`, then project, then ID). Pass `project_id` to scope the
+        list to one project. A request whose expiry has passed is not listed:
+        it can no longer be decided. `listAttention` also lists actions whose
+        outcome needs checking.
+
+        `status` is required and accepts only `pending` in v1. Later versions
+        may accept more values without breaking existing clients.
+      x-permission: approvals:read
+      parameters:
+        - $ref: '#/components/parameters/ApprovalStatusFilter'
+        - $ref: '#/components/parameters/ProjectIdFilter'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: A page of pending approval requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequestPage'
+              examples:
+                one_waiting:
+                  summary: One deployment waiting for a decision
+                  value:
+                    items:
+                      - id: apr-d2d69f6b7a0ce595
+                        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                        project_name: Client ETL Pipeline
+                        run_id: run-2
+                        node: deploy
+                        agent: deployer
+                        action:
+                          tool: deploy_release
+                          category: production_deploy
+                          params:
+                            environment: production
+                            release: '2026.10.02-1'
+                        action_fingerprint: 'sha256:f0fd6f8ce462b499fc1bf44e47c09213e79eb6d9d6775503da2d2dc149937f05'
+                        reason: tests and review passed
+                        risk: Changes what real users run in production.
+                        status: pending
+                        requested_at: '2026-10-02T06:16:00.000000Z'
+                        expires_at: '2026-10-02T18:16:00.000000Z'
+                        decision: null
+                        action_summary: 'deploy_release (production deploy)'
+                        attention: decision_required
+                        execution: null
+                        notifications: []
+                        timeline:
+                          - kind: approval_requested
+                            at: '2026-10-02T06:16:00.000000Z'
+                            attempt: null
+                            actor: null
+                            worker: null
+                            outcome: null
+                            until: '2026-10-02T18:16:00.000000Z'
+                    next_cursor: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/attention:
+    get:
+      operationId: listAttention
+      tags: [approvals]
+      summary: What needs a person now (the attention inbox)
+      description: |
+        Everything waiting for a human, across all projects (or one), oldest
+        first (by `since`, then project, then approval):
+
+        - `decision_required`: an approval request that is pending and has not
+          expired. Approve or reject it with `decideApproval`
+          (`approvals:decide`).
+        - `reconciliation_required`: an approved action whose outcome is
+          unknown, and for whose uncertain attempt nobody has answered yet.
+          Say whether it happened with `reconcileAction` (`actions:reconcile`).
+
+        The server decides what needs attention, including expiry, so a
+        client never inspects engine state. Each item names its approval;
+        `getApproval` shows the full action, its execution, and its timeline.
+
+        **Why one list.** The phone's first screen needs both kinds, in one
+        order, behind one cursor. Two client queries would need two cursors
+        and a client-side merge, and uncertain actions have no other listing.
+      x-permission: approvals:read
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdFilter'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: A page of attention items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttentionPage'
+              examples:
+                two_kinds:
+                  summary: A decision to make, and an action someone must check
+                  value:
+                    items:
+                      - kind: reconciliation_required
+                        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                        project_name: Client ETL Pipeline
+                        run_id: run-1
+                        approval_id: apr-0b1c2d3e4f5a6b7c
+                        execution_id: axe-8e2f0c7d1b6a5f4e3d2c
+                        attempt: 1
+                        tool: send_notice
+                        category: external_communication
+                        summary: 'Outcome unknown: send_notice (external communication) was started; say whether it happened.'
+                        since: '2026-10-02T04:12:00.000000Z'
+                        expires_at: null
+                      - kind: decision_required
+                        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                        project_name: Client ETL Pipeline
+                        run_id: run-2
+                        approval_id: apr-d2d69f6b7a0ce595
+                        execution_id: null
+                        attempt: null
+                        tool: deploy_release
+                        category: production_deploy
+                        summary: 'Approval needed: deploy_release (production deploy).'
+                        since: '2026-10-02T06:16:00.000000Z'
+                        expires_at: '2026-10-02T18:16:00.000000Z'
+                    next_cursor: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/projects/{project_id}/approvals/{approval_id}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectIdPath'
+      - $ref: '#/components/parameters/ApprovalIdPath'
+    get:
+      operationId: getApproval
+      tags: [approvals]
+      summary: Get one approval request (the approval screen)
+      description: |
+        Everything the approval screen shows:
+        - the project, agent, and workflow step;
+        - the exact action and its fingerprint, and a safe one-line summary;
+        - the reason, the plain-language risk, when it was requested, and
+          when it expires;
+        - the decision, once one exists, with the authenticated person who
+          made it;
+        - what happened to the approved action (`execution`), and every step
+          so far (`timeline`): dispatches, outcomes, and reconciliations,
+          built from structured records, never raw logs;
+        - `attention`: whether a decision or a reconciliation is needed now.
+
+        `status` shows `expired` as soon as a pending request's `expires_at`
+        has passed.
+
+        Approval IDs are unique within a project only, so the project is part
+        of the path.
+      x-permission: approvals:read
+      responses:
+        '200':
+          description: The approval request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequest'
+              examples:
+                pending:
+                  $ref: '#/components/examples/PendingDeployment'
+                approved:
+                  $ref: '#/components/examples/ApprovedDeployment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/projects/{project_id}/approvals/{approval_id}/decision:
+    parameters:
+      - $ref: '#/components/parameters/ProjectIdPath'
+      - $ref: '#/components/parameters/ApprovalIdPath'
+    post:
+      operationId: decideApproval
+      tags: [approvals]
+      summary: Approve or reject the exact action of one approval request
+      description: |
+        Records a decision for exactly the action this request describes.
+
+        **Exact-action binding.** The client sends the `action_fingerprint`
+        it showed the user. The decision is recorded only if that equals the
+        fingerprint of the stored request; otherwise 409
+        `action_fingerprint_mismatch`, and nothing is recorded.
+
+        **What this does not do.** It neither executes the action nor resumes
+        the run. It records the decision and makes the run eligible for a
+        worker, in one transaction. The worker that claims the run applies the
+        decision only after re-checking it against the exact action the engine
+        is paused on, the approval's expiry, and the person who decided. A
+        database row saying "approved" never authorizes any other action.
+        Watch the run's status, or the approval's `timeline`, to see it resume.
+
+        **Expiry.** A request can be decided only before `expires_at` (12
+        hours after it was requested, by default); afterwards 409
+        `approval_expired`. An approved action must also begin before
+        `expires_at`, or it is never sent. Expiry never renews: asking again is
+        a new request.
+
+        **One decision, safe retries.** An approval request has at most one
+        decision. The approval itself is the idempotency key, so no
+        `Idempotency-Key` header is needed.
+
+        | Request | Response |
+        | --- | --- |
+        | First decision | 201 Created |
+        | Repeat of the same decision (same outcome and fingerprint, same person), e.g. a phone retry | 200 OK, with the decision already recorded; nothing new is stored |
+        | Different outcome, or a different person, after a decision exists | 409 `approval_already_decided`, with the current approval in the response |
+        | Two decisions arriving at the same moment | Settled exactly as if they had arrived one after the other |
+
+        **Server-controlled fields.** The server sets the decision time and
+        records who decided: the authenticated principal, verified from the
+        access token. The request body can carry neither, and a client can
+        never mark an identity as verified. Authentication proves *who*
+        decided; the action fingerprint proves *what* they decided. Both are
+        required.
+
+        **Permission.** `approvals:decide`; `approvals:read` alone is not
+        enough. Decisions are also limited per principal (429 with
+        `Retry-After`).
+      x-permission: approvals:decide
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalDecisionRequest'
+            examples:
+              approve:
+                summary: Approve from a phone
+                value:
+                  outcome: approved
+                  action_fingerprint: 'sha256:f0fd6f8ce462b499fc1bf44e47c09213e79eb6d9d6775503da2d2dc149937f05'
+                  comment: Approved from mobile
+              reject:
+                summary: Reject, with a reason
+                value:
+                  outcome: rejected
+                  action_fingerprint: 'sha256:f0fd6f8ce462b499fc1bf44e47c09213e79eb6d9d6775503da2d2dc149937f05'
+                  comment: Not during business hours.
+      responses:
+        '201':
+          description: The decision was recorded by this request. The response is the approval with its decision.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequest'
+              examples:
+                recorded:
+                  $ref: '#/components/examples/ApprovedDeployment'
+        '200':
+          description: This exact decision was already recorded, for example by an earlier attempt of a retried request. Nothing new was stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequest'
+              examples:
+                replayed:
+                  $ref: '#/components/examples/ApprovedDeployment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ApprovalConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/projects/{project_id}/approvals/{approval_id}/reconciliation:
+    parameters:
+      - $ref: '#/components/parameters/ProjectIdPath'
+      - $ref: '#/components/parameters/ApprovalIdPath'
+    post:
+      operationId: reconcileAction
+      tags: [approvals]
+      summary: Say whether an approved action with an unknown outcome happened
+      description: |
+        When an approved action was sent and Agent Factory cannot tell whether
+        it took effect (a timeout after sending, a crash mid-action), the run
+        waits (`awaiting_reconciliation`) and the approval's `attention` is
+        `reconciliation_required`. A person who checked answers here, for
+        exactly the attempt they were shown:
+
+        | `choice` | Meaning | What follows |
+        | --- | --- | --- |
+        | `it_happened` | It took effect | The run continues as if it succeeded. Nothing is sent again. |
+        | `did_not_happen` | It did not take effect, and must not be retried | The run continues without it. |
+        | `did_not_happen_retry` | It did not take effect, and may be tried once more | A **new** authorization for one more attempt, valid for 15 minutes from this decision. The original approval is never reactivated. |
+
+        There is no "I don't know, just retry": a retry asserts that the
+        action did not happen.
+
+        **Exact binding.** The body echoes `execution_id`, `attempt`, and
+        `action_fingerprint` from the approval's `execution` and
+        `action_fingerprint`. A stale or altered screen gets 409, and nothing
+        is recorded.
+
+        **What this does not do.** It records the answer and wakes the run,
+        in one transaction. A worker that holds the run's claim re-checks the
+        answer, applies it to the record of the action, and continues the run.
+        This request sends nothing.
+
+        **One answer per attempt, safe retries.**
+
+        | Request | Response |
+        | --- | --- |
+        | First answer | 201 Created |
+        | Repeat of the same answer by the same person | 200 OK; nothing new is stored |
+        | A different answer, or another person, after one exists | 409 `reconciliation_already_decided` |
+
+        **Server-controlled fields.** The server sets the time and records
+        the authenticated principal as the one who answered.
+
+        **Permission.** `actions:reconcile`. `approvals:decide` does not allow
+        this. Answers count, with decisions, against the per-principal limit
+        (429 with `Retry-After`).
+      x-permission: actions:reconcile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconciliationRequest'
+            examples:
+              it_happened:
+                summary: It did take effect
+                value:
+                  execution_id: axe-8e2f0c7d1b6a5f4e3d2c
+                  attempt: 1
+                  action_fingerprint: 'sha256:764f762737837d792c339a4977418ac0f2948e9bf762fb21f36f352fa78e61b2'
+                  choice: it_happened
+                  comment: The notice is in the customer's inbox.
+              retry:
+                summary: It did not happen; try once more
+                value:
+                  execution_id: axe-8e2f0c7d1b6a5f4e3d2c
+                  attempt: 1
+                  action_fingerprint: 'sha256:764f762737837d792c339a4977418ac0f2948e9bf762fb21f36f352fa78e61b2'
+                  choice: did_not_happen_retry
+                  comment: The gateway has no record of it.
+      responses:
+        '201':
+          description: The answer was recorded by this request. The response is the approval, with its execution and timeline.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequest'
+              examples:
+                recorded:
+                  $ref: '#/components/examples/ReconciledNotice'
+        '200':
+          description: This exact answer was already recorded. Nothing new was stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequest'
+              examples:
+                replayed:
+                  $ref: '#/components/examples/ReconciledNotice'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ReconciliationConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        OAuth 2.0 bearer access tokens (RFC 6750): JWTs issued by an
+        established OpenID Connect provider and verified by the backend,
+        which acts as a resource server. A token is accepted only if its
+        signature verifies with a key the provider published (asymmetric
+        algorithms only, never `none` or HMAC), its `iss` is exactly the
+        configured issuer, its `aud` contains the configured audience, it has
+        not expired, and its issuer and subject belong to an enrolled, active
+        principal. `decided_by` comes from that principal.
+
+        **Implemented:** token verification, principals, permissions, and
+        their enforcement on every operation. **Not yet:** a chosen and
+        configured production identity provider (one is configured per
+        deployment), and browser sign-in (with the frontend). No homegrown
+        login protocol exists, and the API still listens on 127.0.0.1 only.
+      bearerFormat: JWT
+      x-agent-factory-status: implemented
+  parameters:
+    ProjectIdPath:
+      name: project_id
+      in: path
+      required: true
+      description: The project's stable ID.
+      schema:
+        $ref: '#/components/schemas/ProjectId'
+    RunIdPath:
+      name: run_id
+      in: path
+      required: true
+      description: The run's ID, which is unique within its project.
+      schema:
+        $ref: '#/components/schemas/RunId'
+    ApprovalIdPath:
+      name: approval_id
+      in: path
+      required: true
+      description: The approval request's ID, which is unique within its project.
+      schema:
+        $ref: '#/components/schemas/ApprovalId'
+    ProjectIdFilter:
+      name: project_id
+      in: query
+      required: false
+      description: Only this project's approvals. Returns 404 if the project does not exist.
+      schema:
+        $ref: '#/components/schemas/ProjectId'
+    ApprovalStatusFilter:
+      name: status
+      in: query
+      required: true
+      description: Which approvals to list. v1 supports only `pending`.
+      schema:
+        type: string
+        enum: [pending]
+    ActivitySince:
+      name: activity_since
+      in: query
+      required: false
+      description: Also count each project's milestones reached at or after this time (UTC).
+      schema:
+        $ref: '#/components/schemas/Timestamp'
+    Since:
+      name: since
+      in: query
+      required: false
+      description: Only milestones whose current status was reached at or after this time (inclusive, UTC).
+      schema:
+        $ref: '#/components/schemas/Timestamp'
+    Until:
+      name: until
+      in: query
+      required: false
+      description: Only milestones whose current status was reached before this time (exclusive, UTC). Must be later than `since`.
+      schema:
+        $ref: '#/components/schemas/Timestamp'
+    MilestoneStatusFilter:
+      name: status
+      in: query
+      required: false
+      description: Only milestones in these statuses. Repeat the parameter for several, e.g. `?status=failed&status=blocked`.
+      style: form
+      explode: true
+      schema:
+        type: array
+        uniqueItems: true
+        maxItems: 5
+        items:
+          $ref: '#/components/schemas/MilestoneStatus'
+    MilestoneCategoryFilter:
+      name: category
+      in: query
+      required: false
+      description: Only milestones in these categories. Repeat the parameter for several.
+      style: form
+      explode: true
+      schema:
+        type: array
+        uniqueItems: true
+        maxItems: 4
+        items:
+          $ref: '#/components/schemas/MilestoneCategory'
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of items on the page.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: |
+        The `next_cursor` of the previous page. It is opaque: clients must
+        not build or decode it. It is valid only with the same filters it was
+        issued for; otherwise the response is 400 `invalid_cursor`.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
+        pattern: '^[A-Za-z0-9_-]+$'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        A unique value the client generates for each new attempt, e.g. a
+        UUID, and reuses unchanged on every retry of that attempt.
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: '^[A-Za-z0-9_-]+$'
+      example: 6f1c8e2a-3d4b-4f7a-9c1e-2b8d5a7f0e93
+  headers:
+    Location:
+      description: Path of the created or decided resource.
+      schema:
+        type: string
+        format: uri-reference
+    IdempotentReplayed:
+      description: Present, with value `true`, when the response is a replay of an earlier request with the same Idempotency-Key.
+      schema:
+        type: string
+        enum: ['true']
+    RetryAfter:
+      description: Seconds to wait before retrying.
+      schema:
+        type: integer
+        minimum: 1
+    WWWAuthenticate:
+      description: 'The authentication scheme (RFC 6750), e.g. `Bearer realm="agent-factory", error="invalid_token"`.'
+      required: true
+      schema:
+        type: string
+        pattern: '^Bearer realm="agent-factory"'
+  responses:
+    BadRequest:
+      description: |
+        The request could not be understood. Codes:
+        - `malformed_request`: the body is not JSON, or not `application/json`;
+        - `idempotency_key_required`: the header is missing;
+        - `invalid_cursor`: the cursor is malformed, expired, or was issued for different filters.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            invalid_cursor:
+              value:
+                type: 'urn:agent-factory:problem:invalid_cursor'
+                title: Invalid cursor
+                status: 400
+                detail: The cursor was issued for different filters; start again without a cursor.
+                instance: /api/v1/projects/prj-4f6c2a9e1b7d3c5a8e0f/milestones
+                code: invalid_cursor
+                request_id: req_7Hc2kQ9xLm4N
+    Unauthorized:
+      description: |
+        The request is not authenticated. Codes:
+        - `authentication_required`: no access token was sent;
+        - `invalid_token`: a token was sent and refused, for any reason
+          (malformed, bad signature, expired, wrong issuer or audience,
+          unknown or disabled identity). The response does not say which.
+      headers:
+        WWW-Authenticate:
+          $ref: '#/components/headers/WWWAuthenticate'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            expired_token:
+              value:
+                type: 'urn:agent-factory:problem:invalid_token'
+                title: Invalid credentials
+                status: 401
+                detail: The access token was not accepted. Sign in again to get a new one.
+                code: invalid_token
+                request_id: req_V4n7Qe2Ws8Lk
+    Forbidden:
+      description: |
+        `forbidden`: the identity is authenticated but lacks the permission
+        this operation requires (`required_permission`). It reveals nothing
+        else about the identity.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            cannot_decide:
+              value:
+                type: 'urn:agent-factory:problem:forbidden'
+                title: Forbidden
+                status: 403
+                detail: This identity does not have the permission this operation requires.
+                code: forbidden
+                request_id: req_P8d3Ht6Mn1Cz
+                required_permission: approvals:decide
+    TooManyRequests:
+      description: |
+        `too_many_requests`: too many refused credentials from this client,
+        or too many decisions by this identity. Retry after `Retry-After`
+        seconds.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: |
+        A resource in the path does not exist. Codes: `project_not_found`,
+        `run_not_found`, `approval_not_found`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            project_not_found:
+              value:
+                type: 'urn:agent-factory:problem:project_not_found'
+                title: Project not found
+                status: 404
+                detail: No project has the ID prj-0000000000000000000a.
+                instance: /api/v1/projects/prj-0000000000000000000a
+                code: project_not_found
+                request_id: req_P8s3nW2qXe7R
+    IdempotencyConflict:
+      description: |
+        The request conflicts with what the server already holds for this
+        Idempotency-Key. Nothing was created. Codes:
+        - `idempotency_key_reused`: the key was already used with a different request body. Do not retry; send the new request with a new key;
+        - `idempotency_key_in_use`: a request with the same key is still being processed. Retry the same request later.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            key_reused:
+              summary: The same key was sent with a different body
+              value:
+                type: 'urn:agent-factory:problem:idempotency_key_reused'
+                title: Idempotency key reused
+                status: 409
+                detail: This Idempotency-Key was already used for a different request; use a new key.
+                instance: /api/v1/projects
+                code: idempotency_key_reused
+                request_id: req_K3d7Wn5pLq2X
+    ApprovalConflict:
+      description: |
+        The decision conflicts with the approval's current state. Nothing was
+        recorded. Codes:
+        - `action_fingerprint_mismatch`: the fingerprint is not that of this approval's exact action;
+        - `approval_already_decided`: a different decision is already recorded. `approval` shows it;
+        - `approval_expired`: the request expired before a decision;
+        - `approval_cancelled`: the request no longer applies.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            fingerprint_mismatch:
+              summary: The screen showed a different (stale or altered) action
+              value:
+                type: 'urn:agent-factory:problem:action_fingerprint_mismatch'
+                title: Action fingerprint mismatch
+                status: 409
+                detail: The decision is for a different action than this approval request. Reload the approval and decide again.
+                instance: /api/v1/projects/prj-4f6c2a9e1b7d3c5a8e0f/approvals/apr-d2d69f6b7a0ce595/decision
+                code: action_fingerprint_mismatch
+                request_id: req_Q4v9mB1tZc6Y
+            already_decided:
+              summary: Someone already rejected it
+              value:
+                type: 'urn:agent-factory:problem:approval_already_decided'
+                title: Approval already decided
+                status: 409
+                detail: This approval was already rejected.
+                instance: /api/v1/projects/prj-4f6c2a9e1b7d3c5a8e0f/approvals/apr-d2d69f6b7a0ce595/decision
+                code: approval_already_decided
+                request_id: req_J2h8sD5kWq3E
+                approval:
+                  id: apr-d2d69f6b7a0ce595
+                  project_id: prj-4f6c2a9e1b7d3c5a8e0f
+                  project_name: Client ETL Pipeline
+                  run_id: run-2
+                  node: deploy
+                  agent: deployer
+                  action:
+                    tool: deploy_release
+                    category: production_deploy
+                    params:
+                      environment: production
+                      release: '2026.10.02-1'
+                  action_fingerprint: 'sha256:f0fd6f8ce462b499fc1bf44e47c09213e79eb6d9d6775503da2d2dc149937f05'
+                  reason: tests and review passed
+                  risk: Changes what real users run in production.
+                  status: rejected
+                  requested_at: '2026-10-02T06:16:00.000000Z'
+                  expires_at: '2026-10-02T18:16:00.000000Z'
+                  decision:
+                    id: apd-a445ced7b1d8bd8e122c
+                    outcome: rejected
+                    action_fingerprint: 'sha256:f0fd6f8ce462b499fc1bf44e47c09213e79eb6d9d6775503da2d2dc149937f05'
+                    decided_at: '2026-10-02T06:40:00.000000Z'
+                    decided_by:
+                      kind: user
+                      id: prn-8d4b2f6a0c9e3b7d1f5a
+                      display_name: Dana
+                      verified: true
+                    comment: Not during business hours.
+                  action_summary: 'deploy_release (production deploy)'
+                  attention: null
+                  execution: null
+                  notifications: []
+                  timeline:
+                    - kind: approval_requested
+                      at: '2026-10-02T06:16:00.000000Z'
+                      attempt: null
+                      actor: null
+                      worker: null
+                      outcome: null
+                      until: '2026-10-02T18:16:00.000000Z'
+                    - kind: rejected
+                      at: '2026-10-02T06:40:00.000000Z'
+                      attempt: null
+                      actor:
+                        kind: user
+                        id: prn-8d4b2f6a0c9e3b7d1f5a
+                        display_name: Dana
+                        verified: true
+                      worker: null
+                      outcome: rejected
+                      until: null
+    ReconciliationConflict:
+      description: |
+        The answer conflicts with the action's current state. Nothing was
+        recorded. Codes:
+        - `reconciliation_not_required`: the action's outcome is not uncertain (nothing to answer);
+        - `reconciliation_stale`: the execution or attempt is not the one now waiting for an answer;
+        - `action_fingerprint_mismatch`: the fingerprint is not that of this action;
+        - `reconciliation_already_decided`: a different answer is already recorded for this attempt.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            stale:
+              summary: The screen showed an earlier attempt
+              value:
+                type: 'urn:agent-factory:problem:reconciliation_stale'
+                title: Reconciliation is stale
+                status: 409
+                detail: This answer is about an attempt that is no longer the one waiting. Reload the approval and answer again.
+                instance: /api/v1/projects/prj-4f6c2a9e1b7d3c5a8e0f/approvals/apr-0b1c2d3e4f5a6b7c/reconciliation
+                code: reconciliation_stale
+                request_id: req_V7c3nR8xTb2L
+    ValidationFailed:
+      description: |
+        The request is well-formed but invalid: a body field or a query parameter. Codes:
+        - `validation_failed`: a field or parameter is missing, of the wrong type, out of range, or not allowed (including server-controlled fields such as `decided_at`); see `errors`;
+        - `unknown_template`: no template has that name.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            missing_fingerprint:
+              summary: A decision without the action fingerprint
+              value:
+                type: 'urn:agent-factory:problem:validation_failed'
+                title: Validation failed
+                status: 422
+                detail: The request body is invalid.
+                instance: /api/v1/projects/prj-4f6c2a9e1b7d3c5a8e0f/approvals/apr-d2d69f6b7a0ce595/decision
+                code: validation_failed
+                request_id: req_V6n1cR8yTb2M
+                errors:
+                  - location: body
+                    pointer: /action_fingerprint
+                    message: Required.
+                  - location: body
+                    pointer: /decided_at
+                    message: Not allowed; the server sets the decision time.
+    InternalError:
+      description: '`internal_error`: an unexpected failure. The response never contains stack traces or internal details. Quote `request_id` when reporting it.'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    ServiceUnavailable:
+      description: |
+        Nothing was recorded. Retry after `Retry-After` seconds. Codes:
+        - `storage_unavailable`: the product database cannot be reached;
+        - `authentication_unavailable`: the identity provider's signing keys
+          cannot be obtained, so no credential can be verified (fail closed).
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            database_down:
+              value:
+                type: 'urn:agent-factory:problem:storage_unavailable'
+                title: Storage unavailable
+                status: 503
+                detail: The service cannot reach its database. Nothing was recorded; try again shortly.
+                code: storage_unavailable
+                request_id: req_S9d4fG2hJk1L
+  examples:
+    PendingDeployment:
+      summary: A production deployment waiting for a decision
+      value:
+        id: apr-d2d69f6b7a0ce595
+        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+        project_name: Client ETL Pipeline
+        run_id: run-2
+        node: deploy
+        agent: deployer
+        action:
+          tool: deploy_release
+          category: production_deploy
+          params:
+            environment: production
+            release: '2026.10.02-1'
+        action_fingerprint: 'sha256:f0fd6f8ce462b499fc1bf44e47c09213e79eb6d9d6775503da2d2dc149937f05'
+        reason: tests and review passed
+        risk: Changes what real users run in production.
+        status: pending
+        requested_at: '2026-10-02T06:16:00.000000Z'
+        expires_at: '2026-10-02T18:16:00.000000Z'
+        decision: null
+        action_summary: 'deploy_release (production deploy)'
+        attention: decision_required
+        execution: null
+        notifications:
+          - about: decision_required
+            attempt: null
+            state: retrying
+            deliveries: 1
+            sent: 0
+            failed: 0
+            created_at: '2026-10-02T06:16:00.000000Z'
+            last_attempt_at: '2026-10-02T06:16:31.000000Z'
+            sent_at: null
+            outcome_unknown: false
+            failure: provider_unavailable
+        timeline:
+          - kind: approval_requested
+            at: '2026-10-02T06:16:00.000000Z'
+            attempt: null
+            actor: null
+            worker: null
+            outcome: null
+            until: '2026-10-02T18:16:00.000000Z'
+    ApprovedDeployment:
+      summary: The same approval after it was approved from a phone
+      value:
+        id: apr-d2d69f6b7a0ce595
+        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+        project_name: Client ETL Pipeline
+        run_id: run-2
+        node: deploy
+        agent: deployer
+        action:
+          tool: deploy_release
+          category: production_deploy
+          params:
+            environment: production
+            release: '2026.10.02-1'
+        action_fingerprint: 'sha256:f0fd6f8ce462b499fc1bf44e47c09213e79eb6d9d6775503da2d2dc149937f05'
+        reason: tests and review passed
+        risk: Changes what real users run in production.
+        status: approved
+        requested_at: '2026-10-02T06:16:00.000000Z'
+        expires_at: '2026-10-02T18:16:00.000000Z'
+        decision:
+          id: apd-a445ced7b1d8bd8e122c
+          outcome: approved
+          action_fingerprint: 'sha256:f0fd6f8ce462b499fc1bf44e47c09213e79eb6d9d6775503da2d2dc149937f05'
+          decided_at: '2026-10-02T11:05:12.000000Z'
+          decided_by:
+            kind: user
+            id: prn-3a7f2c9e1b5d8f0a4c6e
+            display_name: Bryan
+            verified: true
+          comment: Approved from mobile
+        action_summary: 'deploy_release (production deploy)'
+        attention: null
+        execution: null
+        notifications:
+          - about: decision_required
+            attempt: null
+            state: sent
+            deliveries: 1
+            sent: 1
+            failed: 0
+            created_at: '2026-10-02T06:16:00.000000Z'
+            last_attempt_at: '2026-10-02T06:16:02.000000Z'
+            sent_at: '2026-10-02T06:16:02.000000Z'
+            outcome_unknown: false
+            failure: null
+        timeline:
+          - kind: approval_requested
+            at: '2026-10-02T06:16:00.000000Z'
+            attempt: null
+            actor: null
+            worker: null
+            outcome: null
+            until: '2026-10-02T18:16:00.000000Z'
+          - kind: approved
+            at: '2026-10-02T11:05:12.000000Z'
+            attempt: null
+            actor:
+              kind: user
+              id: prn-3a7f2c9e1b5d8f0a4c6e
+              display_name: Bryan
+              verified: true
+            worker: null
+            outcome: approved
+            until: null
+    ReconciledNotice:
+      summary: A notice whose outcome was unknown, after a person authorized one more attempt (not yet applied)
+      value:
+        id: apr-0b1c2d3e4f5a6b7c
+        project_id: prj-4f6c2a9e1b7d3c5a8e0f
+        project_name: Client ETL Pipeline
+        run_id: run-1
+        node: notify
+        agent: notifier
+        action:
+          tool: send_notice
+          category: external_communication
+          params:
+            to: billing@example.test
+            text: invoice ready
+        action_fingerprint: 'sha256:764f762737837d792c339a4977418ac0f2948e9bf762fb21f36f352fa78e61b2'
+        reason: external_communication requires human approval
+        risk: Sends information to people or services outside this machine.
+        status: approved
+        requested_at: '2026-10-02T03:50:00.000000Z'
+        expires_at: '2026-10-02T15:50:00.000000Z'
+        decision:
+          id: apd-1bee97a2f172131c020b
+          outcome: approved
+          action_fingerprint: 'sha256:764f762737837d792c339a4977418ac0f2948e9bf762fb21f36f352fa78e61b2'
+          decided_at: '2026-10-02T04:10:00.000000Z'
+          decided_by:
+            kind: user
+            id: prn-3a7f2c9e1b5d8f0a4c6e
+            display_name: Bryan
+            verified: true
+          comment: ''
+        action_summary: 'send_notice (external communication)'
+        attention: null
+        execution:
+          id: axe-8e2f0c7d1b6a5f4e3d2c
+          state: uncertain
+          attempt: 1
+          retry_authorized_until: null
+          reconciliation:
+            attempt: 1
+            choice: did_not_happen_retry
+            decided_at: '2026-10-02T07:02:00.000000Z'
+            decided_by:
+              kind: user
+              id: prn-3a7f2c9e1b5d8f0a4c6e
+              display_name: Bryan
+              verified: true
+            comment: The gateway has no record of it.
+            applied: false
+        notifications:
+          - about: decision_required
+            attempt: null
+            state: sent
+            deliveries: 1
+            sent: 1
+            failed: 0
+            created_at: '2026-10-02T03:50:00.000000Z'
+            last_attempt_at: '2026-10-02T03:50:01.000000Z'
+            sent_at: '2026-10-02T03:50:01.000000Z'
+            outcome_unknown: false
+            failure: null
+          - about: reconciliation_required
+            attempt: 1
+            state: sent
+            deliveries: 1
+            sent: 1
+            failed: 0
+            created_at: '2026-10-02T04:12:00.000000Z'
+            last_attempt_at: '2026-10-02T04:12:01.000000Z'
+            sent_at: '2026-10-02T04:12:01.000000Z'
+            outcome_unknown: false
+            failure: null
+        timeline:
+          - kind: approval_requested
+            at: '2026-10-02T03:50:00.000000Z'
+            attempt: null
+            actor: null
+            worker: null
+            outcome: null
+            until: '2026-10-02T15:50:00.000000Z'
+          - kind: approved
+            at: '2026-10-02T04:10:00.000000Z'
+            attempt: null
+            actor:
+              kind: user
+              id: prn-3a7f2c9e1b5d8f0a4c6e
+              display_name: Bryan
+              verified: true
+            worker: null
+            outcome: approved
+            until: null
+          - kind: action_dispatching
+            at: '2026-10-02T04:11:58.000000Z'
+            attempt: 1
+            actor: null
+            worker:
+              worker_id: wkr-6b1f3a9c2e7d4b8f0a5c
+              fencing_token: 3
+            outcome: null
+            until: null
+          - kind: outcome_uncertain
+            at: '2026-10-02T04:12:00.000000Z'
+            attempt: 1
+            actor: null
+            worker:
+              worker_id: wkr-6b1f3a9c2e7d4b8f0a5c
+              fencing_token: 3
+            outcome: null
+            until: null
+          - kind: reconciliation_required
+            at: '2026-10-02T04:12:00.000000Z'
+            attempt: 1
+            actor: null
+            worker: null
+            outcome: null
+            until: null
+          - kind: reconciliation_decided
+            at: '2026-10-02T07:02:00.000000Z'
+            attempt: 1
+            actor:
+              kind: user
+              id: prn-3a7f2c9e1b5d8f0a4c6e
+              display_name: Bryan
+              verified: true
+            worker: null
+            outcome: did_not_happen_retry
+            until: null
+  schemas:
+    ProjectId:
+      type: string
+      description: A project's stable, opaque ID. Random; never derived from a filesystem path.
+      pattern: '^prj-[0-9a-f]{20}$'
+      examples: [prj-4f6c2a9e1b7d3c5a8e0f]
+    RunId:
+      type: string
+      description: A run's ID, unique within its project only.
+      pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'
+      examples: [run-2]
+    MilestoneId:
+      type: string
+      pattern: '^ms-[0-9a-f]{20}$'
+      examples: [ms-669b73e90843c2bc78ba]
+    ApprovalId:
+      type: string
+      description: An approval request's ID, unique within its project only. It is the engine's own ID for the exact pending action.
+      pattern: '^apr-[0-9a-f]{16}$'
+      examples: [apr-d2d69f6b7a0ce595]
+    DecisionId:
+      type: string
+      pattern: '^apd-[0-9a-f]{20}$'
+      examples: [apd-a445ced7b1d8bd8e122c]
+    ActionFingerprint:
+      type: string
+      description: SHA-256 over the exact action (tool, category, and every parameter). Computed by Agent Factory; never by clients.
+      pattern: '^sha256:[0-9a-f]{64}$'
+      examples: ['sha256:f0fd6f8ce462b499fc1bf44e47c09213e79eb6d9d6775503da2d2dc149937f05']
+    TemplateName:
+      type: string
+      pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'
+      examples: [calculator]
+    MilestoneType:
+      type: string
+      description: A milestone type from the project's vocabulary, e.g. `tests_passing` or `ingestion_working`.
+      pattern: '^[a-z][a-z0-9_]{0,63}$'
+      examples: [tests_passing]
+    Timestamp:
+      type: string
+      format: date-time
+      description: |
+        A UTC instant in ISO 8601, always ending in `Z`, with up to six
+        fractional digits. Responses always use six. Clients convert it to
+        local time for display; the API never uses local time.
+      pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$'
+      examples: ['2026-10-02T06:16:00.000000Z']
+    RunStatus:
+      type: string
+      enum: [running, awaiting_approval, awaiting_reconciliation, blocked, completed, failed, exhausted]
+      description: |
+        - `running`: in progress.
+        - `awaiting_approval`: paused on a protected action.
+        - `awaiting_reconciliation`: paused because an approved action may already have happened
+          and Agent Factory cannot tell; a person must say whether it did before the run continues.
+          Not an infrastructure problem: human judgment is needed. (Added within v1.)
+        - `blocked`: code could not be run safely, or the record of approved actions is unavailable
+          (e.g. the sandbox or the database is unavailable); resumable.
+        - `completed`: finished successfully.
+        - `failed`: stopped by an error.
+        - `exhausted`: a retry budget ran out.
+    ProjectStatus:
+      type: string
+      enum: [not_started, running, awaiting_approval, awaiting_reconciliation, blocked, completed, failed, exhausted]
+      description: The status of the project's latest run, or `not_started` if it has none.
+    MilestoneStatus:
+      type: string
+      enum: [planned, in_progress, completed, failed, blocked]
+    MilestoneCategory:
+      type: string
+      enum: [workflow, deliverable, approval, lifecycle]
+    ApprovalStatus:
+      type: string
+      enum: [pending, approved, rejected, expired, cancelled]
+      description: |
+        `expired`: no decision was recorded before `expires_at`; shown as soon
+        as that time has passed. An expired request can never be decided.
+    ExecutionId:
+      type: string
+      pattern: '^axe-[0-9a-f]{20}$'
+      description: Identifies the record of attempting one approved action.
+    ExecutionState:
+      type: string
+      enum: [authorized, dispatching, succeeded, failed, uncertain, lapsed]
+      description: |
+        What Agent Factory knows about the approved action:
+        - `authorized`: approved, not sent (yet);
+        - `dispatching`: being sent now, or the sender stopped before recording the outcome;
+        - `succeeded` / `failed`: it took effect / it definitely did not;
+        - `uncertain`: it was sent and nobody can tell whether it took effect; a person must say;
+        - `lapsed`: the approval ended (expired, or its step finished) without the action being sent.
+    ReconciliationChoice:
+      type: string
+      enum: [it_happened, did_not_happen, did_not_happen_retry]
+    AttentionKind:
+      type: string
+      enum: [decision_required, reconciliation_required]
+    TimelineKind:
+      type: string
+      enum:
+        - approval_requested
+        - approved
+        - rejected
+        - expired
+        - action_dispatching
+        - retry_dispatched
+        - action_succeeded
+        - action_failed
+        - action_not_dispatched
+        - outcome_uncertain
+        - reconciliation_required
+        - reconciliation_decided
+        - retry_authorized
+        - resolved
+    DecisionOutcome:
+      type: string
+      enum: [approved, rejected]
+    ActorKind:
+      type: string
+      enum: [unauthenticated, user, system]
+    Permission:
+      type: string
+      description: |
+        What an authenticated identity may do. Each operation requires
+        exactly one (`x-permission`); no permission implies another.
+        `actions:reconcile` (settling an action whose outcome is uncertain)
+        has no operation yet.
+      enum:
+        - projects:read
+        - projects:create
+        - runs:read
+        - milestones:read
+        - approvals:read
+        - approvals:decide
+        - actions:reconcile
+    ActionCategory:
+      type: string
+      description: |
+        The kind of effect an action has; the permission policy decides by it.
+        `cloud_read` is read-only access to an external cloud system through a
+        typed, trusted adapter: it uses the network and a cloud identity and
+        may disclose cloud information, but must not mutate the cloud system.
+        It is not a local `read_workspace`. Cloud mutations use the dangerous
+        categories (for example `production_deploy`), and identity, credential,
+        and organization changes are never approvable.
+      enum:
+        - read_workspace
+        - write_workspace
+        - execute_local
+        - execute_sandboxed
+        - destructive_delete
+        - spend_money
+        - production_deploy
+        - credential_change
+        - external_communication
+        - network_access
+        - cloud_read
+    MilestoneTypeDefinition:
+      type: object
+      additionalProperties: false
+      required: [type, title, category, description, order]
+      properties:
+        type:
+          $ref: '#/components/schemas/MilestoneType'
+        title:
+          type: string
+          maxLength: 120
+        category:
+          $ref: '#/components/schemas/MilestoneCategory'
+        description:
+          type: string
+          maxLength: 500
+        order:
+          type: [integer, 'null']
+          minimum: 1
+          description: Display position of the milestones a run is expected to reach in order; null for ones that may happen at any time.
+    Template:
+      type: object
+      additionalProperties: false
+      required: [name, description, milestone_types]
+      properties:
+        name:
+          $ref: '#/components/schemas/TemplateName'
+        description:
+          type: string
+          maxLength: 500
+        milestone_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/MilestoneTypeDefinition'
+    TemplateList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Template'
+    RunSummary:
+      type: object
+      additionalProperties: false
+      required: [run_id, number, status, updated_at]
+      properties:
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        number:
+          type: integer
+          minimum: 1
+        status:
+          $ref: '#/components/schemas/RunStatus'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+    Activity:
+      type: object
+      additionalProperties: false
+      required: [since, milestones]
+      description: Milestones reached since the requested time, for dashboard counts.
+      properties:
+        since:
+          $ref: '#/components/schemas/Timestamp'
+        milestones:
+          type: integer
+          minimum: 0
+    ProjectSummary:
+      type: object
+      additionalProperties: false
+      required: [id, name, template, status, latest_run, pending_approvals, activity]
+      properties:
+        id:
+          $ref: '#/components/schemas/ProjectId'
+        name:
+          type: string
+          maxLength: 200
+        template:
+          oneOf:
+            - $ref: '#/components/schemas/TemplateName'
+            - type: 'null'
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        latest_run:
+          oneOf:
+            - $ref: '#/components/schemas/RunSummary'
+            - type: 'null'
+        pending_approvals:
+          type: integer
+          minimum: 0
+        activity:
+          description: Present when `activity_since` was given; otherwise null.
+          oneOf:
+            - $ref: '#/components/schemas/Activity'
+            - type: 'null'
+    Project:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, template, created_at, status, latest_run, pending_approvals, activity, milestone_types]
+      properties:
+        id:
+          $ref: '#/components/schemas/ProjectId'
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        template:
+          oneOf:
+            - $ref: '#/components/schemas/TemplateName'
+            - type: 'null'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        latest_run:
+          oneOf:
+            - $ref: '#/components/schemas/RunSummary'
+            - type: 'null'
+        pending_approvals:
+          type: integer
+          minimum: 0
+        activity:
+          description: Present when `activity_since` was given; otherwise null.
+          oneOf:
+            - $ref: '#/components/schemas/Activity'
+            - type: 'null'
+        milestone_types:
+          type: array
+          description: The project's milestone vocabulary, fixed when the project was created.
+          items:
+            $ref: '#/components/schemas/MilestoneTypeDefinition'
+    CreateProjectRequest:
+      type: object
+      additionalProperties: false
+      required: [name, template]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: '^[^\u0000-\u001f\u007f]*\S[^\u0000-\u001f\u007f]*$'
+        template:
+          $ref: '#/components/schemas/TemplateName'
+        description:
+          type: string
+          maxLength: 2000
+          default: ''
+          pattern: '^[^\u0000-\u0008\u000b-\u001f\u007f]*$'
+    Run:
+      type: object
+      additionalProperties: false
+      required: [project_id, run_id, number, workflow, status, status_reason, pending_approval_id, created_at, updated_at, model_usage]
+      properties:
+        project_id:
+          $ref: '#/components/schemas/ProjectId'
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        number:
+          type: integer
+          minimum: 1
+          description: 1 for the project's first run, 2 for the second, and so on.
+        workflow:
+          type: string
+          maxLength: 64
+          description: Name of the workflow graph the run follows.
+        status:
+          $ref: '#/components/schemas/RunStatus'
+        status_reason:
+          type: [string, 'null']
+          maxLength: 300
+          description: |
+            A short explanation of the status, written for people. It always
+            comes from a fixed set of safe messages and never from raw engine
+            errors: it never contains file paths, stack traces, credentials,
+            or sandbox internals.
+        pending_approval_id:
+          description: The approval this run is waiting for, when `status` is `awaiting_approval`.
+          oneOf:
+            - $ref: '#/components/schemas/ApprovalId'
+            - type: 'null'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+        model_usage:
+          $ref: '#/components/schemas/ModelUsage'
+    ModelUsage:
+      type: object
+      additionalProperties: false
+      required: [calls, failed_calls, input_tokens, output_tokens, cached_tokens, estimated_cost_usd, by_model]
+      description: |
+        The run's model calls so far, as of its last checkpoint. A call whose
+        answer never arrived is counted at its reserved maximum (the provider
+        may have processed it). Read only. Never includes prompts, outputs, or
+        credentials.
+      properties:
+        calls:
+          type: integer
+          minimum: 0
+        failed_calls:
+          type: integer
+          minimum: 0
+        input_tokens:
+          type: integer
+          minimum: 0
+        output_tokens:
+          type: integer
+          minimum: 0
+        cached_tokens:
+          type: integer
+          minimum: 0
+        estimated_cost_usd:
+          description: An estimate from prices the operator configured; null when no prices are configured. Never an invoice.
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: 'null'
+        by_model:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/ModelUsageByModel'
+    ModelUsageByModel:
+      type: object
+      additionalProperties: false
+      required: [provider, model, calls, input_tokens, output_tokens, cached_tokens]
+      properties:
+        provider:
+          type: string
+          maxLength: 64
+        model:
+          type: string
+          maxLength: 128
+        calls:
+          type: integer
+          minimum: 0
+        input_tokens:
+          type: integer
+          minimum: 0
+        output_tokens:
+          type: integer
+          minimum: 0
+        cached_tokens:
+          type: integer
+          minimum: 0
+    RunPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Run'
+        next_cursor:
+          $ref: '#/components/schemas/NextCursor'
+    StepRef:
+      type: object
+      additionalProperties: false
+      required: [node, outcome]
+      properties:
+        node:
+          type: string
+          maxLength: 64
+        outcome:
+          type: string
+          maxLength: 64
+    MilestoneSource:
+      type: object
+      additionalProperties: false
+      required: [node, agent]
+      properties:
+        node:
+          type: [string, 'null']
+          maxLength: 64
+        agent:
+          type: [string, 'null']
+          maxLength: 64
+    Milestone:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, run_id, sequence, type, category, title, summary, status, occurred_at, source, follows, resolves_milestone_id, approval_id]
+      properties:
+        id:
+          $ref: '#/components/schemas/MilestoneId'
+        project_id:
+          $ref: '#/components/schemas/ProjectId'
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        sequence:
+          type: integer
+          minimum: 1
+          description: Position within the run (1, 2, 3, ...).
+        type:
+          $ref: '#/components/schemas/MilestoneType'
+        category:
+          $ref: '#/components/schemas/MilestoneCategory'
+        title:
+          type: string
+          maxLength: 120
+        summary:
+          type: string
+          maxLength: 1000
+          description: Text written by an agent. Display it as plain text, never as HTML.
+        status:
+          $ref: '#/components/schemas/MilestoneStatus'
+        occurred_at:
+          $ref: '#/components/schemas/Timestamp'
+        source:
+          $ref: '#/components/schemas/MilestoneSource'
+        follows:
+          description: 'The workflow step this milestone came after. For example, an implementation after `{node: tester, outcome: fail}` is a repair.'
+          oneOf:
+            - $ref: '#/components/schemas/StepRef'
+            - type: 'null'
+        resolves_milestone_id:
+          description: The earlier failed milestone of this run that this one repaired.
+          oneOf:
+            - $ref: '#/components/schemas/MilestoneId'
+            - type: 'null'
+        approval_id:
+          description: For `human_decision` milestones, the approval request involved.
+          oneOf:
+            - $ref: '#/components/schemas/ApprovalId'
+            - type: 'null'
+    MilestonePage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Milestone'
+        next_cursor:
+          $ref: '#/components/schemas/NextCursor'
+    ExactAction:
+      type: object
+      additionalProperties: false
+      required: [tool, category, params]
+      description: |
+        The exact proposed action, shown to the approver in full. Tools take
+        workspace-relative paths and references, never secret values, so the
+        parameters can always be displayed.
+      properties:
+        tool:
+          type: string
+          maxLength: 64
+        category:
+          $ref: '#/components/schemas/ActionCategory'
+        params:
+          type: object
+          description: The tool's parameters, exactly as the engine will use them.
+    Actor:
+      type: object
+      additionalProperties: false
+      required: [kind, id, display_name, verified]
+      description: |
+        Who decided. Always set by the server, never by a request: an
+        authenticated principal (`user`, `verified`, `id` is its `prn-` ID),
+        or the local command line (`unauthenticated`, never verified).
+      properties:
+        kind:
+          $ref: '#/components/schemas/ActorKind'
+        id:
+          type: string
+          maxLength: 200
+        display_name:
+          type: string
+          maxLength: 200
+        verified:
+          type: boolean
+          readOnly: true
+          description: True only for identities the server verified. An `unauthenticated` actor is never verified.
+    ApprovalDecision:
+      type: object
+      additionalProperties: false
+      required: [id, outcome, action_fingerprint, decided_at, decided_by, comment]
+      properties:
+        id:
+          $ref: '#/components/schemas/DecisionId'
+        outcome:
+          $ref: '#/components/schemas/DecisionOutcome'
+        action_fingerprint:
+          $ref: '#/components/schemas/ActionFingerprint'
+        decided_at:
+          $ref: '#/components/schemas/Timestamp'
+          readOnly: true
+          description: Set by the server when it records the decision.
+        decided_by:
+          $ref: '#/components/schemas/Actor'
+          readOnly: true
+        comment:
+          type: string
+          maxLength: 1000
+    WorkerRef:
+      type: object
+      additionalProperties: false
+      required: [worker_id, fencing_token]
+      description: The worker process that sent an attempt, and its ownership generation of the run (for audit).
+      properties:
+        worker_id:
+          type: string
+          pattern: '^wkr-[0-9a-f]{20}$'
+        fencing_token:
+          type: integer
+          minimum: 1
+    TimelineEntry:
+      type: object
+      additionalProperties: false
+      required: [kind, at, attempt, actor, worker, outcome, until]
+      description: |
+        One step in the life of an approved action, built from structured
+        records (the approval, its decision, the execution ledger, and
+        reconciliations), never from raw logs.
+      properties:
+        kind:
+          $ref: '#/components/schemas/TimelineKind'
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        attempt:
+          description: The attempt the step is about, for dispatches, outcomes, and reconciliations.
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        actor:
+          description: The person who decided or reconciled.
+          oneOf:
+            - $ref: '#/components/schemas/Actor'
+            - type: 'null'
+        worker:
+          description: The worker that sent the attempt; null for other steps, and for a local process.
+          oneOf:
+            - $ref: '#/components/schemas/WorkerRef'
+            - type: 'null'
+        outcome:
+          description: The decision (`approved`, `rejected`), the reconciliation's choice, or the final state of a resolution.
+          oneOf:
+            - type: string
+              maxLength: 32
+            - type: 'null'
+        until:
+          description: For a request, when it expires; for a retry authorization, when it ends.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+    Reconciliation:
+      type: object
+      additionalProperties: false
+      required: [attempt, choice, decided_at, decided_by, comment, applied]
+      description: A person's answer about one uncertain attempt.
+      properties:
+        attempt:
+          type: integer
+          minimum: 1
+        choice:
+          $ref: '#/components/schemas/ReconciliationChoice'
+        decided_at:
+          $ref: '#/components/schemas/Timestamp'
+          readOnly: true
+        decided_by:
+          $ref: '#/components/schemas/Actor'
+          readOnly: true
+        comment:
+          type: string
+          maxLength: 1000
+        applied:
+          type: boolean
+          description: True once a worker has applied the answer to the record of the action.
+    ActionExecution:
+      type: object
+      additionalProperties: false
+      required: [id, state, attempt, retry_authorized_until, reconciliation]
+      description: What happened to the approved action. No parameters or internals beyond the approval's own action.
+      properties:
+        id:
+          $ref: '#/components/schemas/ExecutionId'
+        state:
+          $ref: '#/components/schemas/ExecutionState'
+        attempt:
+          type: integer
+          minimum: 0
+          description: The latest attempt (0 before the first). Echo it when reconciling.
+        retry_authorized_until:
+          description: While a person-authorized retry may still begin.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        reconciliation:
+          description: The answer recorded for the latest uncertain attempt, if any.
+          oneOf:
+            - $ref: '#/components/schemas/Reconciliation'
+            - type: 'null'
+    NotificationState:
+      type: string
+      enum: [queued, sending, retrying, sent, failed, skipped]
+      description: |
+        Whether people were told about one attention event. `sent`: a
+        notification provider accepted it for at least one person (not proof
+        that anyone read it). `failed`: every attempt gave up. `skipped`: no
+        longer needed before it was sent (for example, already decided). The
+        attention item itself stays authoritative whatever this says.
+    NotificationFailure:
+      type: string
+      enum: [timeout, provider_unavailable, rate_limited, outcome_unknown, invalid_destination, provider_rejected_configuration, unsupported_destination, max_attempts, attention_resolved, destination_disabled, recipient_not_permitted]
+      description: Why a notification is not (yet) sent. A closed vocabulary; never a provider's own error text.
+    NotificationStatus:
+      type: object
+      additionalProperties: false
+      required: [about, attempt, state, deliveries, sent, failed, created_at, last_attempt_at, sent_at, outcome_unknown, failure]
+      description: |
+        The notifications about one attention event of this approval. Read
+        only, and informational: a notification alerts, it never authorizes
+        anything. No recipient, address, provider, or message text is ever
+        exposed.
+      properties:
+        about:
+          $ref: '#/components/schemas/AttentionKind'
+        attempt:
+          description: For `reconciliation_required`, the uncertain attempt the notification was about.
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        state:
+          $ref: '#/components/schemas/NotificationState'
+        deliveries:
+          type: integer
+          minimum: 1
+          description: How many destinations were to be told.
+        sent:
+          type: integer
+          minimum: 0
+        failed:
+          type: integer
+          minimum: 0
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        last_attempt_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        sent_at:
+          description: When a provider first accepted it.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        outcome_unknown:
+          type: boolean
+          description: Some attempt ended without an answer from the provider, so a person may have received a duplicate.
+        failure:
+          oneOf:
+            - $ref: '#/components/schemas/NotificationFailure'
+            - type: 'null'
+    ApprovalRequest:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, project_name, run_id, node, agent, action, action_fingerprint, reason, risk, status, requested_at, expires_at, decision, action_summary, attention, execution, notifications, timeline]
+      properties:
+        id:
+          $ref: '#/components/schemas/ApprovalId'
+        project_id:
+          $ref: '#/components/schemas/ProjectId'
+        project_name:
+          type: string
+          maxLength: 200
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        node:
+          type: string
+          maxLength: 64
+          description: The workflow step that asked.
+        agent:
+          type: string
+          maxLength: 64
+          description: The agent that wants to act.
+        action:
+          $ref: '#/components/schemas/ExactAction'
+        action_fingerprint:
+          $ref: '#/components/schemas/ActionFingerprint'
+        reason:
+          type: string
+          maxLength: 500
+        risk:
+          type: string
+          maxLength: 500
+          description: Plain-language risk of the action's category, e.g. "Changes what real users run in production."
+        status:
+          $ref: '#/components/schemas/ApprovalStatus'
+        requested_at:
+          $ref: '#/components/schemas/Timestamp'
+        expires_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        decision:
+          description: The decision, once one exists.
+          oneOf:
+            - $ref: '#/components/schemas/ApprovalDecision'
+            - type: 'null'
+        action_summary:
+          type: string
+          maxLength: 300
+          description: A safe one-line summary for lists (the tool and its category); never the parameters.
+        attention:
+          description: What this approval needs from a person now, if anything.
+          oneOf:
+            - $ref: '#/components/schemas/AttentionKind'
+            - type: 'null'
+        execution:
+          description: What happened to the approved action; null until a worker first uses the approval.
+          oneOf:
+            - $ref: '#/components/schemas/ActionExecution'
+            - type: 'null'
+        notifications:
+          type: array
+          maxItems: 50
+          description: |
+            Whether people were told that this approval needed them, one entry
+            per attention event (the decision, and each uncertain attempt),
+            oldest first. Empty when no notification was due (for example, no
+            destination is configured). Informational only.
+          items:
+            $ref: '#/components/schemas/NotificationStatus'
+        timeline:
+          type: array
+          maxItems: 200
+          description: Every step so far, oldest first.
+          items:
+            $ref: '#/components/schemas/TimelineEntry'
+    ApprovalRequestPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApprovalRequest'
+        next_cursor:
+          $ref: '#/components/schemas/NextCursor'
+    ApprovalDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [outcome, action_fingerprint]
+      description: |
+        The only fields a client sends. There is no time, actor, or
+        verification field: the server sets them, and a body containing any
+        of them is refused (422 `validation_failed`).
+      properties:
+        outcome:
+          $ref: '#/components/schemas/DecisionOutcome'
+        action_fingerprint:
+          $ref: '#/components/schemas/ActionFingerprint'
+        comment:
+          type: string
+          maxLength: 1000
+          default: ''
+          pattern: '^[^\u0000-\u0008\u000b-\u001f\u007f]*$'
+    ReconciliationRequest:
+      type: object
+      additionalProperties: false
+      required: [execution_id, attempt, action_fingerprint, choice]
+      description: |
+        The only fields a client sends. `execution_id`, `attempt`, and
+        `action_fingerprint` echo what the person was shown. There is no
+        time, actor, or verification field: the server sets them.
+      properties:
+        execution_id:
+          $ref: '#/components/schemas/ExecutionId'
+        attempt:
+          type: integer
+          minimum: 1
+        action_fingerprint:
+          $ref: '#/components/schemas/ActionFingerprint'
+        choice:
+          $ref: '#/components/schemas/ReconciliationChoice'
+        comment:
+          type: string
+          maxLength: 1000
+          default: ''
+          pattern: '^[^\u0000-\u0008\u000b-\u001f\u007f]*$'
+    AttentionItem:
+      type: object
+      additionalProperties: false
+      required: [kind, project_id, project_name, run_id, approval_id, execution_id, attempt, tool, category, summary, since, expires_at]
+      properties:
+        kind:
+          $ref: '#/components/schemas/AttentionKind'
+        project_id:
+          $ref: '#/components/schemas/ProjectId'
+        project_name:
+          type: string
+          maxLength: 200
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        approval_id:
+          $ref: '#/components/schemas/ApprovalId'
+        execution_id:
+          description: For `reconciliation_required`, the action to answer about.
+          oneOf:
+            - $ref: '#/components/schemas/ExecutionId'
+            - type: 'null'
+        attempt:
+          description: For `reconciliation_required`, the uncertain attempt.
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        tool:
+          type: string
+          maxLength: 64
+        category:
+          $ref: '#/components/schemas/ActionCategory'
+        summary:
+          type: string
+          maxLength: 300
+          description: Safe text built from the tool and category; never the parameters.
+        since:
+          $ref: '#/components/schemas/Timestamp'
+          description: When it began needing a person.
+        expires_at:
+          description: For `decision_required`, when the request stops being decidable.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+    AttentionPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttentionItem'
+        next_cursor:
+          $ref: '#/components/schemas/NextCursor'
+    ProjectSummaryPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectSummary'
+        next_cursor:
+          $ref: '#/components/schemas/NextCursor'
+    NextCursor:
+      description: Pass as `cursor` to get the next page; null on the last page.
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 512
+          pattern: '^[A-Za-z0-9_-]+$'
+        - type: 'null'
+    ErrorCode:
+      type: string
+      description: |
+        Stable, machine-readable error code. New codes may be added within v1.
+        `route_not_found` (404) and `method_not_allowed` (405) answer requests
+        for paths or methods that are not part of this contract.
+      enum:
+        - malformed_request
+        - idempotency_key_required
+        - invalid_cursor
+        - authentication_required
+        - invalid_token
+        - forbidden
+        - too_many_requests
+        - project_not_found
+        - run_not_found
+        - approval_not_found
+        - route_not_found
+        - method_not_allowed
+        - action_fingerprint_mismatch
+        - approval_already_decided
+        - approval_expired
+        - approval_cancelled
+        - reconciliation_not_required
+        - reconciliation_stale
+        - reconciliation_already_decided
+        - idempotency_key_in_use
+        - idempotency_key_reused
+        - validation_failed
+        - unknown_template
+        - internal_error
+        - storage_unavailable
+        - authentication_unavailable
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [location, pointer, message]
+      properties:
+        location:
+          type: string
+          enum: [body, query, path, header]
+        pointer:
+          type: string
+          maxLength: 200
+          description: JSON Pointer into the body (e.g. `/action_fingerprint`), or the parameter name.
+        message:
+          type: string
+          maxLength: 300
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code, request_id]
+      description: |
+        The one error format (RFC 9457 problem details) for every 4xx and 5xx
+        response. It is safe to show: it never contains stack traces,
+        credentials, file paths, database details, or sandbox internals.
+      properties:
+        type:
+          type: string
+          format: uri
+          pattern: '^urn:agent-factory:problem:[a-z_]+$'
+          description: Identifies the problem type; it always ends with `code`.
+        title:
+          type: string
+          maxLength: 200
+          description: Short, human-readable summary of the problem type.
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+          maxLength: 1000
+          description: Human-readable explanation of this occurrence.
+        instance:
+          type: string
+          format: uri-reference
+          maxLength: 500
+          description: The request path.
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        request_id:
+          type: string
+          pattern: '^req_[A-Za-z0-9]{8,64}$'
+          description: Matches the server's logs. Quote it when reporting a problem.
+        errors:
+          type: array
+          maxItems: 50
+          description: For `validation_failed`, one entry per problem.
+          items:
+            $ref: '#/components/schemas/FieldError'
+        approval:
+          $ref: '#/components/schemas/ApprovalRequest'
+          description: For `approval_already_decided`, the approval as it now stands, including the recorded decision.
+        required_permission:
+          $ref: '#/components/schemas/Permission'
+          description: For `forbidden`, the permission the operation requires.

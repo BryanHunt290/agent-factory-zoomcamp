@@ -1,0 +1,8 @@
+# Lists everything under /work and checks nothing landed outside it (used with crafted archives).
+import json, os
+
+files = []
+for root, dirs, names in os.walk("/work"):
+    files += [os.path.relpath(os.path.join(root, n), "/work") for n in names]
+outside = [p for p in ("/x", "/pax-evil", "/evil", "/etc/evil", "/af-evil.py", "/tmp/x") if os.path.exists(p)]
+print("RESULT " + json.dumps({"files": sorted(files), "outside": outside}))

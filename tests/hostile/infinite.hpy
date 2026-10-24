@@ -1,0 +1,3 @@
+# HOSTILE: never terminates.
+while True:
+    pass

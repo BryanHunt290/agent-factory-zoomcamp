@@ -1,0 +1,26 @@
+# HOSTILE: record my token, then look for any other execution's files and processes. argv: my token.
+import json, os, socket, sys, time
+
+token = sys.argv[1]
+open("/work/mine.txt", "w").write(token)
+open("/tmp/mine.txt", "w").write(token)
+time.sleep(3)
+
+
+def dump(d):
+    out = {}
+    for n in sorted(os.listdir(d)):
+        p = os.path.join(d, n)
+        out[n] = open(p, errors="replace").read(200) if os.path.isfile(p) else "<dir>"
+    return out
+
+
+procs = {}
+for pid in os.listdir("/proc"):
+    if pid.isdigit():
+        try:
+            procs[pid] = open(f"/proc/{pid}/cmdline", "rb").read().replace(b"\0", b" ").decode(errors="replace")
+        except OSError:
+            pass
+print("RESULT " + json.dumps({"token": token, "work": dump("/work"), "tmp": dump("/tmp"), "procs": procs,
+                              "hostname": socket.gethostname()}))

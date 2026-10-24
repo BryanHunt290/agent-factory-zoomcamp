@@ -1,0 +1,30 @@
+# HOSTILE: try to read outside the staged project. argv: candidate host paths.
+import json, os, sys
+
+targets = sys.argv[1:]
+fixed = [
+    "../../../../etc/passwd", "/etc/shadow", "/proc/1/root/etc/hostname", "/proc/self/root/etc/hostname",
+    "/proc/1/environ", "/proc/self/mountinfo", "/proc/1/cmdline", "/proc/1/cwd", "/proc/self/cwd/../..",
+    "/run/desktop/mnt/host/c", "/run/desktop/mnt/host", "/mnt/host/c", "/host_mnt/c", "/host_mnt", "/mnt/c",
+    "/mnt/wsl", "/mnt", "/var/run/docker.sock", "/run/docker.sock", "/run/guest-services", "/.dockerenv",
+]
+report = {}
+for path in targets + fixed:
+    try:
+        if os.path.isdir(path):
+            report[path] = {"dir": sorted(os.listdir(path))[:50]}
+        else:
+            with open(path, "rb") as f:
+                data = f.read(4096)
+            report[path] = {"read": len(data), "head": data[:300].decode("utf-8", "replace")}
+    except OSError as e:
+        report[path] = {"errno": e.errno, "err": e.strerror}
+names = {os.path.basename(t.replace("\\", "/")) for t in targets}
+hits = []
+for root, dirs, files in os.walk("/"):
+    if root.startswith(("/proc", "/sys", "/dev")):
+        dirs[:] = []
+        continue
+    hits += [os.path.join(root, n) for n in names if n in files or n in dirs]
+report["search_hits"] = hits
+print("RESULT " + json.dumps(report))

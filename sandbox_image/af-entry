@@ -1,0 +1,186 @@
+#!/usr/local/bin/python3 -I
+"""af-entry: Agent Factory sandbox entrypoint (copy-in protocol v1).
+
+Usage (built by DockerBackend; never by a model):
+
+    af-entry --workdir REL --archive-bytes N --archive-sha256 HEX -- ARGV...
+
+1. Read exactly N bytes from stdin (the staged tar). It does not wait for
+   stdin EOF, so it works whether or not Docker closes the container's stdin.
+2. Verify the SHA-256 of those bytes.
+3. Extract defensively into /work. Only regular-file entries are accepted;
+   names must be relative, normalised, and free of '..', NUL, and control
+   characters; existing paths are never overwritten (O_EXCL) and never
+   followed (O_NOFOLLOW); ownership comes from the running (non-root) user
+   and permissions are fixed at 0644 (dirs 0700). No setuid/setgid/exec bits
+   are ever set from the archive.
+4. Replace stdin with /dev/null, so staging is finished before project code
+   runs.
+5. chdir into /work/REL and exec ARGV directly (os.execvp; no shell).
+
+Exit codes 120-123 are reserved for af-entry itself and are reported on
+stderr with the prefix "af-entry: ".
+"""
+
+import hashlib
+import io
+import os
+import posixpath
+import sys
+import tarfile
+
+PROTOCOL = 1
+WORK = "/work"
+MAX_MEMBERS = 5000
+MAX_NAME_CHARS = 240
+MAX_DEPTH = 32
+MAX_ARCHIVE_BYTES = 10 * 1024 * 1024 * 1024
+CHUNK = 1024 * 1024
+
+EXIT_STAGING = 120
+EXIT_WORKDIR = 121
+EXIT_EXEC = 122
+EXIT_USAGE = 123
+
+
+class EntryError(Exception):
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
+def parse_args(argv):
+    opts = {}
+    i = 0
+    while i < len(argv) and argv[i] != "--":
+        key = argv[i]
+        if key not in ("--workdir", "--archive-bytes", "--archive-sha256") or i + 1 >= len(argv):
+            raise EntryError(EXIT_USAGE, f"bad argument {key!r}")
+        opts[key] = argv[i + 1]
+        i += 2
+    command = argv[i + 1 :] if i < len(argv) else []
+    if set(opts) != {"--workdir", "--archive-bytes", "--archive-sha256"} or not command:
+        raise EntryError(EXIT_USAGE, "usage: af-entry --workdir REL --archive-bytes N --archive-sha256 HEX -- ARGV...")
+    try:
+        size = int(opts["--archive-bytes"])
+    except ValueError:
+        raise EntryError(EXIT_USAGE, "archive size is not an integer") from None
+    digest = opts["--archive-sha256"]
+    if not (0 <= size <= MAX_ARCHIVE_BYTES) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+        raise EntryError(EXIT_USAGE, "invalid archive size or digest")
+    return opts["--workdir"], size, digest, command
+
+
+def check_relative(name):
+    """Normalised relative POSIX path, or raise. '.' is allowed only for workdir."""
+    if not isinstance(name, str) or not name or len(name) > MAX_NAME_CHARS:
+        raise EntryError(EXIT_STAGING, f"invalid path {name!r}")
+    if any(ord(c) < 32 or c in "\\\x7f" for c in name):
+        raise EntryError(EXIT_STAGING, f"invalid characters in path {name!r}")
+    if name.startswith("/") or name.endswith("/") or posixpath.normpath(name) != name:
+        raise EntryError(EXIT_STAGING, f"path {name!r} is not a normalised relative path")
+    parts = name.split("/")
+    if any(p in ("", ".", "..") for p in parts) or len(parts) > MAX_DEPTH:
+        raise EntryError(EXIT_STAGING, f"path {name!r} escapes or is too deep")
+    return name
+
+
+def read_exact(fd, size):
+    buf = bytearray()
+    while len(buf) < size:
+        chunk = os.read(fd, min(CHUNK, size - len(buf)))
+        if not chunk:
+            raise EntryError(EXIT_STAGING, f"stdin ended after {len(buf)} of {size} archive bytes")
+        buf += chunk
+    return bytes(buf)
+
+
+def extract(data, work=WORK):
+    """Extract regular files from ``data`` into ``work``. Returns the file names."""
+    nofollow = getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
+    names = []
+    try:
+        tar = tarfile.open(fileobj=io.BytesIO(data), mode="r:")
+    except tarfile.TarError as exc:
+        raise EntryError(EXIT_STAGING, f"unreadable archive: {exc}") from None
+    with tar:
+        members = tar.getmembers()
+        if len(members) > MAX_MEMBERS:
+            raise EntryError(EXIT_STAGING, f"too many archive entries ({len(members)})")
+        for m in members:
+            if m.type not in (tarfile.REGTYPE, tarfile.AREGTYPE):
+                raise EntryError(EXIT_STAGING, f"{m.name!r}: entry type {m.type!r} not allowed (regular files only)")
+            name = check_relative(m.name)
+            dest = os.path.join(work, *name.split("/"))
+            real_work = os.path.realpath(work)
+            parent = os.path.dirname(dest)
+            try:
+                os.makedirs(parent, mode=0o700, exist_ok=True)
+            except OSError as exc:
+                raise EntryError(EXIT_STAGING, f"{name!r}: cannot create parent directory: {exc.strerror}") from None
+            if os.path.commonpath([os.path.realpath(parent), real_work]) != real_work:
+                raise EntryError(EXIT_STAGING, f"{name!r}: parent resolves outside {work}")
+            try:
+                fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL | nofollow, 0o644)
+            except FileExistsError:
+                raise EntryError(EXIT_STAGING, f"{name!r}: duplicate entry") from None
+            except OSError as exc:
+                raise EntryError(EXIT_STAGING, f"{name!r}: cannot create: {exc.strerror}") from None
+            try:
+                src = tar.extractfile(m)
+                remaining = m.size
+                while remaining:
+                    chunk = src.read(min(CHUNK, remaining))
+                    if not chunk:
+                        raise EntryError(EXIT_STAGING, f"{name!r}: truncated entry")
+                    os.write(fd, chunk)
+                    remaining -= len(chunk)
+            except OSError as exc:
+                raise EntryError(EXIT_STAGING, f"{name!r}: write failed: {exc.strerror}") from None
+            finally:
+                os.close(fd)
+            os.chmod(dest, 0o644)
+            names.append(name)
+    return names
+
+
+def main(argv):
+    workdir, size, digest, command = parse_args(argv)
+    data = read_exact(0, size)
+    if hashlib.sha256(data).hexdigest() != digest:
+        raise EntryError(EXIT_STAGING, "archive sha256 mismatch")
+    os.umask(0o022)
+    extract(data)
+    del data
+    # Staging is finished: project code never sees the staging channel.
+    devnull = os.open(os.devnull, os.O_RDONLY)
+    os.dup2(devnull, 0)
+    os.close(devnull)
+    target = WORK if workdir == "." else os.path.join(WORK, *check_relative(workdir).split("/"))
+    if not os.path.isdir(target) or os.path.islink(target):
+        raise EntryError(EXIT_WORKDIR, f"working directory {workdir!r} does not exist")
+    os.chdir(target)
+    try:
+        os.execvp(command[0], command)
+    except OSError as exc:
+        raise EntryError(EXIT_EXEC, f"cannot execute {command[0]!r}: {exc.strerror}") from None
+
+
+def entrypoint(argv, stderr=None):
+    """Run af-entry; on any failure return a reserved exit code (never a project-like one)."""
+    stderr = stderr or sys.stderr
+    try:
+        main(argv)
+    except EntryError as exc:
+        stderr.write(f"af-entry: {exc}\n")
+        return exc.code
+    except Exception as exc:  # an unexpected error must never look like a project failure
+        stderr.write(f"af-entry: internal error: {type(exc).__name__}: {exc}\n")
+        return EXIT_STAGING
+    return EXIT_EXEC  # unreachable: main() either execs or raises
+
+
+if __name__ == "__main__":
+    code = entrypoint(sys.argv[1:])
+    sys.stderr.flush()
+    os._exit(code)

@@ -1,0 +1,13 @@
+{
+  "af_entry_sha256": "144c09c1191368118364194b3499988666e3659a28e376d9af92a0423ba96f2a",
+  "base_image": "docker.io/library/python@sha256:fd95fa221297a88e1cf49c55ec1828edd7c5a428187e67b5d1805692d11588db",
+  "base_image_id": "sha256:fd95fa221297a88e1cf49c55ec1828edd7c5a428187e67b5d1805692d11588db",
+  "base_python_version": "3.12.10",
+  "built_at": "2026-10-02T05:33:54.486300Z",
+  "docker_server_version": "29.6.1",
+  "dockerfile_sha256": "31f843aafadbf112de1a0c6f0397c79c489d585417a3534b18c17204ffd1716d",
+  "format": 1,
+  "image_id": "sha256:fc7cdf13f40470f28a32da517d42a80acef1844908061581e7a5caf24591c57f",
+  "image_ref": "agent-factory/sandbox-python:3.12",
+  "protocol": 1
+}

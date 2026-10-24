@@ -1,0 +1,25 @@
+# HOSTILE: spawn children designed to outlive the parent, then never exit.
+import json, os, signal, subprocess, sys, time
+
+spawned = []
+# 1. detached session leader
+p = subprocess.Popen([sys.executable, "-c", "import time\nwhile True: time.sleep(1)"], start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+spawned.append(p.pid)
+# 2. classic double-fork daemon that ignores termination signals
+pid = os.fork()
+if pid == 0:
+    os.setsid()
+    if os.fork() == 0:
+        for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+            signal.signal(sig, signal.SIG_IGN)
+        while True:
+            time.sleep(1)
+    os._exit(0)
+os.waitpid(pid, 0)
+# 3. child that ignores SIGTERM
+q = subprocess.Popen(["sleep", "600"], preexec_fn=lambda: signal.signal(signal.SIGTERM, signal.SIG_IGN))
+spawned.append(q.pid)
+print("RESULT " + json.dumps({"parent": os.getpid(), "spawned": spawned}), flush=True)
+while True:
+    time.sleep(0.2)

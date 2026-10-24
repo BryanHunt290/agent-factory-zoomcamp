@@ -1,0 +1,37 @@
+# Development and test tools. Agent Factory itself needs none of these.
+#
+# Install into the project's virtual environment, never globally:
+#   py -3.12 -m venv .venv
+#   .venv\Scripts\python -m pip install -r requirements-dev.txt -r requirements-postgres.txt
+#
+# The API contract tests (tests/test_openapi_contract.py) use PyYAML,
+# openapi-spec-validator and jsonschema. Exact versions, verified on 2026-10-02.
+pytest==8.4.2
+PyYAML==6.0.3
+openapi-spec-validator==0.9.0
+jsonschema==4.26.0
+
+# Transitive dependencies, as resolved on the reference machine:
+openapi-schema-validator==0.9.0
+jsonschema-path==0.5.0
+jsonschema-specifications==2025.9.1
+referencing==0.37.0
+rpds-py==2026.6.3
+pathable==0.6.0
+lazy-object-proxy==1.12.0
+rfc3339-validator==0.1.4
+pydantic==2.13.4
+pydantic-core==2.46.4
+pydantic-settings==2.15.0
+python-dotenv==1.2.4
+attrs==26.1.0
+annotated-types==0.8.0
+typing-inspection==0.4.2
+typing-extensions==4.16.0
+six==1.17.0
+
+# pytest transitive dependencies: pin clean reviewer/CI resolution (2026-10-23).
+iniconfig==2.3.1
+packaging==26.3
+pluggy==1.7.0
+pygments==2.21.0

@@ -1,0 +1,13 @@
+# HOSTILE: create processes as fast as possible (bounded at 200).
+import json, subprocess
+
+children, err = [], None
+for _ in range(200):
+    try:
+        children.append(subprocess.Popen(["sleep", "30"]))
+    except OSError as e:
+        err = [e.errno, e.strerror]
+        break
+print("RESULT " + json.dumps({"spawned": len(children), "error": err}), flush=True)
+if err:
+    raise BlockingIOError(err[0], err[1])

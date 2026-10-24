@@ -1,0 +1,23 @@
+# HOSTILE: fill every writable location until writes fail (bounded at 256 MiB per location).
+import json
+
+
+def fill(directory, cap):
+    written, err, i = 0, None, 0
+    try:
+        while written < cap:
+            with open(f"{directory}/fill{i}.bin", "wb") as f:
+                for _ in range(16):
+                    f.write(b"z" * 65536)
+                    written += 65536
+            i += 1
+    except OSError as e:
+        err = [e.errno, e.strerror]
+    return written, err
+
+
+work = fill("/work", 256 * 1024 * 1024)
+tmp = fill("/tmp", 256 * 1024 * 1024)
+print("RESULT " + json.dumps({"work": work, "tmp": tmp}), flush=True)
+if work[1] or tmp[1]:
+    raise OSError(28, "No space left on device")

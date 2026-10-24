@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-factory"
+version = "0.1.0"
+description = "Graph-based orchestration for autonomous software-development projects."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+# Test tools, including the API contract checks; exact pins in requirements-dev.txt.
+dev = ["pytest>=8", "PyYAML==6.0.3", "openapi-spec-validator==0.9.0", "jsonschema==4.26.0"]
+# Optional durable product store (docs/database.md); exact pins in requirements-postgres.txt.
+postgres = ["psycopg[binary]==3.3.6"]
+# Optional local HTTP API (docs/backend.md), served from the PostgreSQL store; exact pins in
+# requirements-api.txt. LOCAL DEVELOPMENT ONLY until authentication exists.
+api = [
+    "psycopg[binary]==3.3.6",
+    "psycopg-pool==3.3.3",
+    "fastapi==0.142.2",
+    "starlette==1.3.1",
+    "pydantic==2.13.4",
+    "uvicorn==0.51.0",
+    "httpx==0.28.1",
+]
+
+[project.scripts]
+agent-factory = "agent_factory.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["agent_factory*"]
+
+[tool.setuptools.package-data]
+"agent_factory.persistence.migrations" = ["*.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# No --basetemp: pytest then gives every run its own numbered directory under
+# the system temp directory, locked while the run is alive, so concurrent runs
+# never share or delete each other's files (docs/testing.md).
+addopts = "-ra"

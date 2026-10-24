@@ -1,0 +1,151 @@
+name: Reviewer checks
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reviewer-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  AWS_EC2_METADATA_DISABLED: "true"
+
+jobs:
+  python:
+    name: Python and API contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12.10"
+          cache: pip
+          cache-dependency-path: requirements-*.txt
+      - name: Install pinned test dependencies
+        run: >-
+          python -m pip install
+          -r requirements-dev.txt -r requirements-postgres.txt
+          -r requirements-api.txt -r requirements-aws.txt
+      - name: Validate installed requirements
+        run: python -m pip check
+      - name: Run default offline suite
+        # Database/browser/Docker/stress/live-provider tiers stay explicitly opt-in.
+        run: python -m pytest -q --tb=short --junitxml=reports/python.xml
+      - name: Retain test result
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-results
+          path: reports/python.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  frontend:
+    name: Frontend contracts, types, tests and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.18.0"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install exact frontend lockfile
+        working-directory: frontend
+        run: npm ci
+      - name: Check contract, types and unit tests
+        working-directory: frontend
+        run: npm run check
+      - name: Build the production bundle
+        working-directory: frontend
+        run: npm run build
+      - name: Retain candidate frontend bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: frontend-${{ github.sha }}
+          path: frontend/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  integration:
+    name: PostgreSQL and real browser workflows
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        # Same PostgreSQL 17 image recorded in docs/database.md; isolated per job.
+        image: postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+        env:
+          POSTGRES_USER: agent_factory_ci
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_DB: agent_factory_ci_test
+        ports:
+          - "127.0.0.1:55432:5432"
+        options: >-
+          --health-cmd "pg_isready -U agent_factory_ci -d agent_factory_ci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Disposable CI data only. This is deliberately not a deployed credential.
+      AGENT_FACTORY_TEST_DATABASE_URL: postgresql://agent_factory_ci:synthetic-ci-only@127.0.0.1:55432/agent_factory_ci_test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12.10"
+          cache: pip
+          cache-dependency-path: requirements-*.txt
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.18.0"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install pinned test dependencies
+        run: >-
+          python -m pip install
+          -r requirements-dev.txt -r requirements-postgres.txt
+          -r requirements-api.txt -r requirements-browser.txt -r requirements-aws.txt
+      - name: Validate installed requirements
+        run: python -m pip check
+      - name: Install exact frontend lockfile
+        working-directory: frontend
+        run: npm ci
+      - name: Verify the runner's installed Google Chrome
+        # The harness uses channel="chrome". Never substitute playwright install.
+        run: google-chrome --version
+      - name: Run PostgreSQL integration tests
+        run: >-
+          python -m pytest -q --tb=short
+          -m "postgres and not browser and not docker_live" --run-postgres
+          --junitxml=reports/postgres.xml
+      - name: Run browser integration and recovery tests
+        # DB restart tests require the specially guarded local dev container;
+        # the GitHub service container must not be renamed or targeted by them.
+        run: >-
+          python -m pytest -q --tb=short
+          -m "browser and not docker_live" --run-browser --run-postgres
+          --junitxml=reports/browser.xml
+      - name: Retain integration results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: integration-results
+          path: reports/*.xml
+          if-no-files-found: ignore
+          retention-days: 7

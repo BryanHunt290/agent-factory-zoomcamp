@@ -1,0 +1,12 @@
+# HOSTILE: flood stdout and stderr without end.
+import sys, threading
+
+
+def spam(stream, ch):
+    line = ch * 1023 + "\n"
+    while True:
+        stream.write(line)
+
+
+threading.Thread(target=spam, args=(sys.stderr, "E"), daemon=True).start()
+spam(sys.stdout, "O")

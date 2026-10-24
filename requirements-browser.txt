@@ -1,0 +1,13 @@
+# Browser tests for the dashboard (marker browser, docs/testing.md). Agent Factory itself needs none of these.
+#
+# Install into the project's virtual environment, never globally:
+#   .venv\Scripts\python -m pip install -r requirements-browser.txt
+#
+# Do NOT run `playwright install`: the tests drive the Google Chrome already
+# installed on the machine (channel "chrome"), so no browser is downloaded.
+# Exact versions, resolved and verified on 2026-10-05.
+playwright==1.63.0
+
+# Transitive dependencies, as resolved on the reference machine:
+greenlet==3.5.6
+pyee==13.0.1
