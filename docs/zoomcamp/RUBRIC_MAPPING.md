@@ -12,7 +12,7 @@ that this checkout works. Fresh outcomes are in [DAY1_VALIDATION.md](DAY1_VALIDA
 | --- | ---: | --- |
 | Problem description | 2 | README now states the user problem, workflow, behavior, and limitations. |
 | Product specification | 2 | [Specification](PRODUCT_SPEC.md) exists. [Day 2 tasks](DAY2_TASKS.md) record acceptance criteria and real development-agent contributions. Source and this task record are [publicly available](https://github.com/BryanHunt290/agent-factory-zoomcamp). |
-| Agent team specification | 2 | [AI workflow](../ai-workflow.md), graph and agent modules describe responsibilities and review loops. |
+| Agent team specification | 2 | [Actual development-agent assignments](DAY2_TASKS.md#actual-agent-collaboration) and the [Day 2 collaboration process](../ai-workflow.md#zoomcamp-day-2-delivery) describe the integration, implementation, CI and independent-review roles and their findings. These development collaborators are distinct from the application's runtime agent graph. |
 | Context management | 2 | Root AGENTS.md links modular architecture, process, security, API, database and frontend docs. |
 | Application | 2 | React frontend, FastAPI, PostgreSQL and workers passed the local browser workflows after Docker recovery; see the fresh validation record. The reviewer launcher now supplies one-command local startup after setup; see [reviewer guide](../REVIEWER_GUIDE.md). |
 | Testing | 2 | Python unit/integration and frontend tests exist. Fresh results and unavailable suites are recorded separately; `scripts/reviewer.py check --browser` combines the offline, database, frontend and browser checks. |

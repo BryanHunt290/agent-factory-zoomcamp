@@ -78,8 +78,28 @@ expired authorization to dispatch failed the new zero-effect assertion as
 intended. No source mutation persisted; the final focused regression passed
 again with the guard restored. Application code, workflow selectors and safety
 guards are unchanged. The test correction is mirrored in the original authoring
-checkout. The corrective push runs the complete hosted workflow again; use its
-commit-associated result on the Actions page when selecting the submission SHA.
+checkout. The corrective push completed the hosted workflow successfully, as
+recorded below.
+
+## Verified corrective hosted run
+
+- Tested source: [`e571dc3a8c965cdc4d24cb5d83bdc5bdf579ffd7`](https://github.com/BryanHunt290/agent-factory-zoomcamp/commit/e571dc3a8c965cdc4d24cb5d83bdc5bdf579ffd7).
+- Workflow: [Reviewer checks, run 40066705063](https://github.com/BryanHunt290/agent-factory-zoomcamp/actions/runs/40066705063).
+- Result: **all three jobs succeeded**, completing by 2026-10-24 at 05:43:42 UTC.
+
+| Check | Observed result |
+| --- | --- |
+| Default Python/API suite | 1,887 passed, 469 skipped, one warning; 106.48 seconds |
+| Frontend | Contract generation check, TypeScript, 57 tests in five files, and production build passed |
+| PostgreSQL integration | 353 passed, 2,003 deselected, one warning; 143.89 seconds |
+| Real-browser workflows and recovery | 42 passed, 2,314 deselected, one warning; 424.21 seconds |
+
+The additional PostgreSQL case is the deterministic expiry-boundary regression
+above. Database and browser selections passed without skips. The default-suite
+skips, Starlette TestClient/httpx warning and excluded live tiers retain the scope
+described for the first run. This verifies the corrective source commit, not a
+later Day 3 evidence commit or the final submitted SHA. Any later submission
+commit still needs its own completed successful CI result.
 
 ## Remaining submission boundaries
 

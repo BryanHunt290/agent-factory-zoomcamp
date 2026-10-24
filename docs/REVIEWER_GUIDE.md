@@ -64,6 +64,10 @@ history. Do not use Docker volume-pruning commands to stop a review session.
 
 ## Verification
 
+Stop any active `up` session with Ctrl+C before running these commands, and run
+them one at a time. Its database and review history remain available; concurrent
+launcher commands are refused.
+
 ```powershell
 py -3.12 scripts/reviewer.py smoke
 py -3.12 scripts/reviewer.py check

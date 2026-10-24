@@ -15,11 +15,14 @@ Factory keeps every responsibility that matters:**
 
 **The model is untrusted input.** Being intelligent gives it no authority.
 
-Status: **foundation complete; no real model call has been made.** The
+Status: **foundation complete, with historical live acceptance recorded.** The
 provider-neutral layer, budgets, usage accounting, context assembly, prompt
-versioning, the capability manifest, and an Anthropic adapter are built and
-tested offline. The first live call needs the owner's authorization
-([below](#authorization-needed-for-the-first-live-call)).
+versioning, capability manifest and Anthropic adapter have offline tests.
+Authorized live acceptance on 2026-10-06 is recorded in [section 4a](#4a-model-provider-tools-versus-agent-factory-capabilities)
+and the [development history](ai-workflow.md). The Zoomcamp reviewer demo and
+hosted CI use the deterministic fake; they do not repeat that live validation.
+Every new live call still needs explicit configuration and owner authorization
+([requirements below](#authorization-needed-for-the-first-live-call)).
 
 ## 1. Design check: which provider first
 
@@ -482,6 +485,10 @@ closes that gap, and `tests/test_anthropic_compat.py` proves it offline
 (rejected key, invalid answers, and validated answers).
 
 ## Authorization needed for the first live call
+
+This historical prerequisite checklist also applies before any new live run.
+The recorded 2026-10-06 acceptance does not authorize another call or establish
+that a provider is currently configured or available.
 
 The owner must explicitly authorize each item:
 

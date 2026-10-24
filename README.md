@@ -20,6 +20,10 @@ and proves orchestration rather than real-model coding quality.
 
 ## Zoomcamp reviewer entry point
 
+Watch the [48-second captured demo and screenshots](docs/zoomcamp/evidence/README.md),
+then see [Day 3 validation](docs/zoomcamp/DAY3_VALIDATION.md) and the
+[final submission package](docs/zoomcamp/FINAL_SUBMISSION.md).
+
 This checkout includes more than the historical v0.2 release described below.
 Start with the [product specification](docs/zoomcamp/PRODUCT_SPEC.md),
 [current submission checklist](docs/zoomcamp/SUBMISSION_CHECKLIST.md),
@@ -48,7 +52,9 @@ API, worker and frontend; database and workspace history remain. It does not
 use the existing development database. The API and dashboard stay on loopback
 with development authentication.
 
-`py -3.12 scripts/reviewer.py smoke` checks real startup and the approval pause.
+Stop an active `up` launcher before running verification commands sequentially.
+`py -3.12 scripts/reviewer.py smoke` checks startup, authentication and the seeded
+run state (awaiting approval or already completed); it does not repeat an approval.
 `py -3.12 scripts/reviewer.py check --browser` runs the offline, PostgreSQL,
 frontend and installed-Chrome checks. Omit `--browser` if Chrome is unavailable.
 For the offline CLI demonstration, use the Quick start below.
@@ -231,7 +237,7 @@ page shows whether people were told. See
 [docs/notifications.md](docs/notifications.md), which includes the
 SMS/email/push provider comparison and what a real provider needs.
 
-**Real model providers, v1 (unreleased; foundation only, no real call made).**
+**Real model providers, v1 (historical live acceptance; fake by default).**
 Agents reach a model only through a Model Gateway, which owns:
 - minimal context, with secret files withheld and host paths redacted;
 - a guard that refuses any request carrying a credential;
@@ -244,7 +250,9 @@ Tool Gateway. The deterministic fake provider stays the default; an
 Anthropic adapter (standard-library HTTPS) is ready but makes no call
 without explicit configuration and the owner's authorization. See
 [docs/model-providers.md](docs/model-providers.md) for the provider
-comparison, privacy, and what the first live call needs.
+comparison, privacy, and authorization requirements for live calls. Historical
+live acceptance on 2026-10-06 is recorded there; the Zoomcamp reviewer demo and
+hosted CI use the fake provider and do not repeat that live validation.
 
 **For AI coding agents:** read [AGENTS.md](AGENTS.md) first.
 
@@ -267,7 +275,7 @@ comparison, privacy, and what the first live call needs.
 | [docs/workers.md](docs/workers.md) | Workers: run claims, leases, heartbeats, fencing tokens, the claim query, protected mutations, checkpoints and the filesystem, shutdown, failures (unreleased; one host) |
 | [docs/frontend.md](docs/frontend.md) | Dashboard v1: running it, architecture, screens, the API client, development sign-in, polling and stale data, approval and reconciliation UX, security, accessibility, tests, the stack decision (unreleased; local development only) |
 | [docs/dashboard-reliability.md](docs/dashboard-reliability.md) | Dashboard failure and recovery: each scenario's failure, what the person saw, what kept running, the final state, and repeated-run results; notification delivery under outages |
-| [docs/model-providers.md](docs/model-providers.md) | Model providers: the provider comparison and recommendation, the Model Gateway, context assembly, versioned prompts, structured output, capability manifests, budgets and usage accounting, retries, prompt injection, privacy, explicit activation, and the authorization the first live call needs (unreleased) |
+| [docs/model-providers.md](docs/model-providers.md) | Model providers: the provider comparison and recommendation, the Model Gateway, context assembly, versioned prompts, structured output, capability manifests, budgets and usage accounting, retries, prompt injection, privacy, explicit activation, and authorization requirements for live calls and historical live acceptance |
 | [docs/capabilities.md](docs/capabilities.md) | The Capability Registry: typed capability definitions, evidence with provenance, availability, tool packs (Core, Git, AWS), agent views, evidence-based assessment, and how the Tool Gateway stays authoritative (unreleased) |
 | [docs/aws-capabilities.md](docs/aws-capabilities.md) | The AWS tool pack: cloud_read, typed capabilities, the real backend without implicit credential chains (tested offline only), credential slots that refuse long-term keys, result filtering, availability, live-tested evidence, and the exact steps for the first real AWS call (unreleased; no AWS call has been made) |
 | [docs/aws-e2-setup.md](docs/aws-e2-setup.md) | Owner guide for Stage E2: the IAM Identity Center console steps, the `agent-factory-dev` profile, temporary-sign-in checks that print no secret, and when the credential slot is bound (preparation only; nothing done) |

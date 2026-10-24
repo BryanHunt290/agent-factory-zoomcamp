@@ -1,0 +1,122 @@
+{
+  "observed_at": "2026-10-24T05:52:41.0435062+00:00",
+  "before_restart": {
+    "run": {
+      "project_id": "prj-3443e74ecde6d072ae05",
+      "run_id": "review-approval",
+      "status": "completed",
+      "created_at": "2026-10-24T05:49:15.014523Z",
+      "updated_at": "2026-10-24T05:50:45.281484Z"
+    },
+    "approval_id": "apr-a54b55169e3c29e8",
+    "approval_status": "approved",
+    "decision_id": "apd-ccf3d974e404e92030a2",
+    "decision_at": "2026-10-24T05:50:44.698364Z",
+    "execution_id": "axe-80933d736057b803f7ba",
+    "execution_state": "succeeded",
+    "execution_attempts": 1,
+    "timeline": [
+      {
+        "kind": "approval_requested",
+        "at": "2026-10-24T05:49:15.621517Z",
+        "attempt": null,
+        "outcome": null
+      },
+      {
+        "kind": "approved",
+        "at": "2026-10-24T05:50:44.698364Z",
+        "attempt": null,
+        "outcome": "approved"
+      },
+      {
+        "kind": "action_dispatching",
+        "at": "2026-10-24T05:50:45.015527Z",
+        "attempt": 1,
+        "outcome": null
+      },
+      {
+        "kind": "action_succeeded",
+        "at": "2026-10-24T05:50:45.026128Z",
+        "attempt": 1,
+        "outcome": null
+      },
+      {
+        "kind": "resolved",
+        "at": "2026-10-24T05:50:45.026128Z",
+        "attempt": null,
+        "outcome": "succeeded"
+      }
+    ]
+  },
+  "after_restart": {
+    "run": {
+      "project_id": "prj-3443e74ecde6d072ae05",
+      "run_id": "review-approval",
+      "status": "completed",
+      "created_at": "2026-10-24T05:49:15.014523Z",
+      "updated_at": "2026-10-24T05:50:45.281484Z"
+    },
+    "approval_id": "apr-a54b55169e3c29e8",
+    "approval_status": "approved",
+    "decision_id": "apd-ccf3d974e404e92030a2",
+    "decision_at": "2026-10-24T05:50:44.698364Z",
+    "execution_id": "axe-80933d736057b803f7ba",
+    "execution_state": "succeeded",
+    "execution_attempts": 1,
+    "timeline": [
+      {
+        "kind": "approval_requested",
+        "at": "2026-10-24T05:49:15.621517Z",
+        "attempt": null,
+        "outcome": null
+      },
+      {
+        "kind": "approved",
+        "at": "2026-10-24T05:50:44.698364Z",
+        "attempt": null,
+        "outcome": "approved"
+      },
+      {
+        "kind": "action_dispatching",
+        "at": "2026-10-24T05:50:45.015527Z",
+        "attempt": 1,
+        "outcome": null
+      },
+      {
+        "kind": "action_succeeded",
+        "at": "2026-10-24T05:50:45.026128Z",
+        "attempt": 1,
+        "outcome": null
+      },
+      {
+        "kind": "resolved",
+        "at": "2026-10-24T05:50:45.026128Z",
+        "attempt": null,
+        "outcome": "succeeded"
+      }
+    ]
+  },
+  "database_counts_after_restart": {
+    "decisions": 1,
+    "executions": 1,
+    "execution_attempts": 1,
+    "worker_id": null,
+    "available_at": null,
+    "fencing_token": 2,
+    "wake_seq": 1,
+    "claimed_wake_seq": 1
+  },
+  "stop": {
+    "method": "Ctrl+C sent to TTY9253",
+    "observed_at": "2026-10-23T23:52:00.422836-06:00",
+    "api_frontend_ports_closed": true,
+    "database_continuously_running": true,
+    "database_id_unchanged": true,
+    "launcher_output": "Reviewer services stopped. Database, volume, credentials and workspaces were retained.",
+    "shell_exit_code": 1
+  },
+  "same_database_volume": true,
+  "same_database_start_time": true,
+  "restart_command": "py -3.12 scripts/reviewer.py up",
+  "assertions_passed": true
+}

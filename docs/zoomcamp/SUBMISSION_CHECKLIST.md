@@ -1,6 +1,6 @@
 # Submission checklist — current 2026 rubric
 
-Reviewed 2026-10-23. [Official source](https://raw.githubusercontent.com/DataTalksClub/ai-dev-tools-zoomcamp/main/project/README.md):
+Reviewed 2026-10-24 UTC. [Official source](https://raw.githubusercontent.com/DataTalksClub/ai-dev-tools-zoomcamp/main/project/README.md):
 12 criteria, 24 points, 10 to pass, plus three mandatory peer reviews.
 See [rubric mapping](RUBRIC_MAPPING.md) and fresh [Day 1](DAY1_VALIDATION.md) / [Day 2](DAY2_VALIDATION.md) validation.
 The previous checklist is retained as [historical evidence](HISTORICAL_SUBMISSION_CHECKLIST.md).
@@ -35,16 +35,19 @@ The previous checklist is retained as [historical evidence](HISTORICAL_SUBMISSIO
 
 Follow the [Day 3 handoff](DAY3_HANDOFF.md) for the ordered final preparation and evidence checks.
 
-- [ ] Verify the exact deadline and timezone on the course platform.
-- [ ] Re-run the clean setup and the principal user journey.
-- [ ] Capture a short demonstration and screenshots with no credentials visible.
-- [ ] Review the 12 criteria against actual evidence; keep missing items explicit.
-- [ ] Add operational metrics/traces, user-impact alert and bounded responder if feasible.
+- [x] Verify the exact deadline and timezone on the course platform.
+- [x] Re-run the clean setup and the principal user journey.
+- [x] Capture a short demonstration and screenshots with no credentials visible.
+- [x] Review the 12 criteria against actual evidence; keep missing items explicit.
+- [ ] Operational metrics/traces, user-impact alert and bounded responder remain explicit rubric gaps.
 - [x] Confirm the [public reviewer-accessible repository](https://github.com/BryanHunt290/agent-factory-zoomcamp).
 - [ ] Select and record the exact final submission commit after its checks pass.
 - [ ] Submit through the course platform and confirm receipt.
 - [ ] Complete three assigned peer reviews by their separate deadline.
 
-Working target: October 26, based on the owner's three-day window, not a verified
-official cutoff. Keep the scope to one working application. Real cloud tools,
-payments, notifications and paid model calls are not necessary for Day 1.
+Verified cutoff: **October 26, 2026, 23:00 UTC / 5 p.m. Denver MDT**.
+Three peer reviews: **November 2, 2026, 23:00 UTC / 4 p.m. Denver MST**.
+See [Day 3 validation](DAY3_VALIDATION.md), [captured evidence](evidence/README.md)
+and the [final package](FINAL_SUBMISSION.md). Final commit/CI selection is recorded
+after verification in the submission release and local ready receipt; course
+submission and peer reviews remain separate actions.

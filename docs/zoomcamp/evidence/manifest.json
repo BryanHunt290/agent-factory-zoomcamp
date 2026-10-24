@@ -1,0 +1,122 @@
+{
+  "captured_utc": [
+    "2026-10-24T05:49:52.408000+00:00",
+    "2026-10-24T05:53:20.980000+00:00"
+  ],
+  "runtime_source_commit": "e571dc3a8c965cdc4d24cb5d83bdc5bdf579ffd7",
+  "source_scope": "Runtime code and dependency pins unchanged in the Day 3 evidence commit.",
+  "project_id": "prj-3443e74ecde6d072ae05",
+  "run_id": "review-approval",
+  "approval_id": "apr-a54b55169e3c29e8",
+  "provider": "fake / fake-deterministic-1",
+  "capture": {
+    "viewport": [
+      426,
+      591
+    ],
+    "frames_per_second": 2,
+    "sampled_frames": 96,
+    "duration_seconds": 48.0,
+    "excluded_viewport_resize_frames": [
+      "frame-0018.jpg",
+      "frame-0056.jpg"
+    ],
+    "editing": "Silent real browser capture segments; time between segments, restart downtime, and two transient narrow viewport frames omitted. No synthetic UI or altered application state in the images."
+  },
+  "chapters": [
+    {
+      "starts_seconds": 0.0,
+      "description": "Dashboard: one exact action needs a human decision."
+    },
+    {
+      "starts_seconds": 3.0,
+      "description": "Project: deterministic fake provider; the run is paused for approval."
+    },
+    {
+      "starts_seconds": 6.0,
+      "description": "Exact action: delete the generated legacy_calc.py fixture. No attempt has occurred."
+    },
+    {
+      "starts_seconds": 9.0,
+      "description": "Action fingerprint and approval ID bind the decision to this exact request."
+    },
+    {
+      "starts_seconds": 11.5,
+      "description": "Confirmation: approval grants permission; it is not proof of execution."
+    },
+    {
+      "starts_seconds": 14.5,
+      "description": "Approve the exact generated fixture action, then wait for the worker."
+    },
+    {
+      "starts_seconds": 18.5,
+      "description": "The decision is recorded; execution is verified separately."
+    },
+    {
+      "starts_seconds": 22.5,
+      "description": "Execution succeeded in one recorded attempt. The timeline records dispatch, success, and resolution."
+    },
+    {
+      "starts_seconds": 27.5,
+      "description": "Run completed: implementation, five fixture tests, review, and the recorded human decision."
+    },
+    {
+      "starts_seconds": 31.0,
+      "description": "Progress remains in PostgreSQL; the browser is only a view."
+    },
+    {
+      "starts_seconds": 35.0,
+      "description": "After Ctrl+C and restart: the same project and completed run persist."
+    },
+    {
+      "starts_seconds": 39.0,
+      "description": "After restart: the same decision and successful execution remain, with one attempt."
+    },
+    {
+      "starts_seconds": 44.0,
+      "description": "Durable timeline: approved, dispatched, succeeded, resolved. One attempt after restart."
+    }
+  ],
+  "assets": {
+    "01-dashboard-pending.jpg": {
+      "bytes": 82886,
+      "sha256": "e8e4f16442d56d6abd3bdcfd0c400d33c27d6ac42547ee94f390b0e3a9ba1ee6"
+    },
+    "02-project-pending.jpg": {
+      "bytes": 79726,
+      "sha256": "18e82f43cd24d68eb9a6b7994cedfe7fb538014e4c078672d7f2444cd5b57643"
+    },
+    "03-approval-pending.jpg": {
+      "bytes": 110262,
+      "sha256": "14555b8c284a9bba2ddd45afedad2bedb9b3ad47dd119821ec7f255380f53d96"
+    },
+    "04-confirmation.jpg": {
+      "bytes": 128065,
+      "sha256": "aff8aed15bc1790afbe08643e553dd459424fd8387b6a13ae0ab1712a5bb1fbc"
+    },
+    "05-action-succeeded.jpg": {
+      "bytes": 105338,
+      "sha256": "09895ac960b4249dd8d5904f2d429146826137c31ea57e333e4f32e75792dd0c"
+    },
+    "06-project-completed.jpg": {
+      "bytes": 112574,
+      "sha256": "6b50b4c9898453e9c279631024c0767f2b23c2c67d9ab28f9f86b87e97735d12"
+    },
+    "07-after-restart.jpg": {
+      "bytes": 113246,
+      "sha256": "38481dc92c691f4dbb4f3b88108928dfbc433801ed93e7b29dc2e2f4b8b9e5d6"
+    },
+    "08-execution-after-restart.jpg": {
+      "bytes": 105325,
+      "sha256": "602e3841ae68aec78e9d858c1e7061c166c0c7d318b0b56939dcb72b2b916b4d"
+    },
+    "09-execution-summary.jpg": {
+      "bytes": 28687,
+      "sha256": "8648cb63edabcb199bda1826717ee53fd8b34d0aa165d3f825631de66b49b44c"
+    },
+    "approval-demo.gif": {
+      "bytes": 1110623,
+      "sha256": "6566771b00fcf80977c57fa3513fb59fc595a2f89f0006c57d7a4361221c2714"
+    }
+  }
+}

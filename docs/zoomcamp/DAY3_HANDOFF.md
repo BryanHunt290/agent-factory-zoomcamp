@@ -1,45 +1,53 @@
 # Day 3 submission handoff
 
-This is a preparation checklist, not evidence that Day 3, submission or peer
-reviews are complete. Keep the final scope to a working, reproducible application
+The local Day 3 journey and captures are recorded in [Day 3 validation](DAY3_VALIDATION.md).
+Course submission and peer reviews are not complete. Keep the final scope to a working, reproducible application
 and an accurate evidence package. Use the [submission checklist](SUBMISSION_CHECKLIST.md),
 [rubric mapping](RUBRIC_MAPPING.md) and [reviewer guide](../REVIEWER_GUIDE.md) together.
 
-## 1. Confirm the official cutoff first
+## 1. Official cutoff and required form values
 
-- [ ] Sign in to the course platform and verify the project submission deadline,
-  its timezone and the separate peer-review deadline. Record the exact timestamps
-  and convert them to the submitter's local timezone.
-- [ ] Confirm the submission form, required fields and current rubric against
-  [the current official project requirements](https://github.com/DataTalksClub/ai-dev-tools-zoomcamp/blob/main/project/README.md)
-  and the [current rubric mapping](RUBRIC_MAPPING.md).
-- [ ] Set a personal submission time before the official cutoff. October 26 is
-  only the working target from the owner's three-day window, not a verified cutoff.
+- [x] Verify the deadlines against the [Project 1 course page](https://courses.datatalks.club/ai-dev-tools-2026/project/project1)
+  and [course calendar](https://courses.datatalks.club/ai-dev-tools-2026/calendar.ics):
+  project submission is **October 26, 2026, 23:00 UTC / 5:00 p.m. Denver MDT**;
+  three peer reviews are due **November 2, 2026, 23:00 UTC / 4:00 p.m. Denver MST**.
+- [x] Confirm the [current official rubric](https://github.com/DataTalksClub/ai-dev-tools-zoomcamp/blob/main/project/README.md):
+  12 criteria, 24 points, 10 to pass. The form requires a public repository URL,
+  exact commit and certificate name; hours and learning-public/FAQ links are optional.
+- [x] Recommend submitting as soon as the final ready receipt is available, with
+  October 26 at noon Denver as a personal buffer target (not an official deadline).
+- [x] Confirm the owner's certificate-name spelling: **Bryan Hunt**.
+- [ ] Select the evaluated commit from completed green CI and record its exact SHA
+  in the local `FINAL_SUBMISSION_READY.md` receipt at handoff. Use the
+  [final submission package](FINAL_SUBMISSION.md); optional hours remain blank
+  unless the owner supplies them. Do not invent optional evidence.
 
 ## 2. Verify and capture the reviewer journey
 
-- [ ] From a fresh checkout of the candidate commit, follow the reviewer guide:
+- [x] From a fresh checkout of the candidate commit, follow the reviewer guide:
   `py -3.12 scripts/reviewer.py setup`, then `py -3.12 scripts/reviewer.py up`.
-  On Linux/macOS use `python3.12`. Record platform/runtime versions and the commit.
+  Day 3 used the supported cached `setup --offline --wheelhouse` variant;
+  [the validation record](DAY3_VALIDATION.md) gives exact commands and versions.
+  On Linux/macOS use `python3.12`. Record the evaluated commit.
   Use an independent machine if existing reviewer resources occupy the default
   ports; do not run parallel reviewer checkouts on the same host. Stop an active
   launcher before restarting that checkout, but remember its database stays
   running. Port/ownership refusals protect existing data: do not reset, delete or
   adopt another checkout's resources to bypass them.
-- [ ] Sign in using the generated local token file; open the seeded project,
+- [x] Sign in using the generated local token file; open the seeded project,
   inspect the exact action and expiry, approve it, and observe the recorded
   decision and the worker's completed execution. Reload and confirm persisted
   history. An approval record alone is not proof that the action executed.
-- [ ] Capture a short demonstration and screenshots of the project, pending
+- [x] Capture a short demonstration and screenshots of the project, pending
   approval and final history. Keep token contents, signing keys, database URLs,
   credential files and unrelated personal data out of the recording. Explain
   that the model is a deterministic fake and the application runs locally.
-- [ ] Stop the launcher with Ctrl+C and verify that a restart preserves the
+- [x] Stop the launcher with Ctrl+C and verify that a restart preserves the
   review history. Do not reset containers or delete volumes to obtain a clean demo.
 
 ## 3. Freeze the evidence for the final commit
 
-- [ ] Review all 12 criteria against actual evidence and retain the gaps below.
+- [x] Review all 12 criteria against actual evidence and retain the gaps below.
   No self-estimated score guarantees acceptance or a final grade.
 - [ ] Select the exact final public commit. Confirm all CI jobs have completed
   successfully on that SHA; a running job or a green run on an earlier SHA is
@@ -47,7 +55,10 @@ and an accurate evidence package. Use the [submission checklist](SUBMISSION_CHEC
 - [ ] Confirm README links, setup instructions, task/AI-use evidence and the demo
   can be reached by a reviewer. Link the final commit, CI run and demo in the
   submission package. Use [publication scope](PUBLICATION.md) for provenance and
-  [Day 2 validation](DAY2_VALIDATION.md) for the recorded local checks.
+  [Day 2 validation](DAY2_VALIDATION.md) for the recorded local checks. Populate
+  [FINAL_SUBMISSION.md](FINAL_SUBMISSION.md) and the [demo evidence index](evidence/README.md)
+  with verified evidence. The final SHA and matching green CI are recorded in the
+  submission release and local ready receipt after CI completes.
 
 ## 4. Submit and retain proof
 
